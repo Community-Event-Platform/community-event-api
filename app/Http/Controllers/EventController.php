@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\Validator;
 
 class EventController extends Controller
 {
+    public function index()
+    {
+        // Fetch published events with their categories for the public facing organizer dashboard
+        $events = Event::with('category')->where('status', 'published')->latest()->take(10)->get();
+        return response()->json(['data' => $events], 200);
+    }
+
     public function store(Request $request)
     {
         // Ensure user is authenticated via sanctum middleware

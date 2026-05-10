@@ -11,6 +11,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test-events', function () {
     return Event::all();
 });
+Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
 
 // Public categories list for frontend dropdown
 Route::get('/categories', function () {
