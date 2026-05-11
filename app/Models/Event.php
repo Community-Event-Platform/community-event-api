@@ -29,4 +29,9 @@ class Event extends Model
     {
         return $this->belongsTo(Category::class);
     }
+
+    public function guests()
+    {
+        return $this->hasMany(Guest::class);
+    }
 }

@@ -26,4 +26,6 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     // Create event (Organizer only)
     Route::post('/events', [\App\Http\Controllers\EventController::class, 'store']);
+    // Dashboard stats
+    Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });
