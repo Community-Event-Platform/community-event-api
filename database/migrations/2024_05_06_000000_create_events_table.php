@@ -17,8 +17,10 @@ return new class extends Migration
             $table->string('location');
             $table->dateTime('event_date');
             $table->integer('capacity');
-            $table->enum('status', ['published', 'draft', 'cancelled'])->default('published');
-            $table->timestamps();
+            $table->enum('status', ['draft', 'published', 'cancelled'])->default('draft');
+            $table->string('image_url')->nullable();
+            $table->string('image_public_id')->nullable();
+            $table->timestamp('created_at')->useCurrent();
         });
     }
 
