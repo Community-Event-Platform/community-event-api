@@ -11,19 +11,25 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
+        $messages = [
+            'full_name.required' => 'Full name is required',
+            'full_name.max' => 'Full name cannot exceed 255 characters',
+            'email.required' => 'Email is required',
+            'email.email' => 'Please provide a valid email address',
+            'email.unique' => 'This email is already registered',
+            'password.required' => 'Password is required',
+            'password.min' => 'Password must be at least 6 characters',
+            'password.confirmed' => 'Password confirmation does not match',
+            'role.required' => 'Role is required',
+            'role.in' => 'Invalid role selected',
+        ];
+
         $validated = $request->validate([
             'full_name' => 'required|string|max:255',
-
             'email' => 'required|email|unique:users,email',
-
-            'password' => [
-                'required',
-                'min:6',
-                'confirmed'
-            ],
-
+            'password' => 'required|string|min:6|confirmed',
             'role' => 'required|in:organizer,attendee'
-        ]);
+        ], $messages);
 
         $user = User::create([
             'full_name' => $validated['full_name'],
