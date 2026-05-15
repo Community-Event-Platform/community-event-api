@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('email', 150)->unique();
             $table->string('password');
             $table->enum('role', ['organizer', 'attendee']);
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
         });
     }
 

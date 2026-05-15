@@ -32,11 +32,11 @@ class AuthController extends Controller
         ], $messages);
 
         $user = User::create([
-            'full_name' => $validated['full_name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'role' => $validated['role']
-        ]);
+    'name' => $validated['full_name'],
+    'email' => $validated['email'],
+    'password' => Hash::make($validated['password']),
+    'role' => $validated['role']
+]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
