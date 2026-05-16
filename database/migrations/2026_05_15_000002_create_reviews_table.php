@@ -11,13 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
+        Schema::create('reviews', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 100);
-            $table->string('email', 150)->unique();
-            $table->string('password');
-            $table->enum('role', ['organizer', 'attendee']);
+            $table->foreignId('event_id')->constrained('events')->onDelete('cascade');
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->integer('rating')->unsigned();
+            $table->string('comment', 300)->nullable();
             $table->timestamp('created_at')->useCurrent();
+
+            $table->unique(['event_id', 'user_id']);
         });
     }
 
@@ -26,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('reviews');
     }
 };
