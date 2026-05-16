@@ -11,31 +11,40 @@ class AuthController extends Controller
 {
     public function register(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6|confirmed',
-            'role' => 'required|string|in:organizer,attendee',
-        ]);
+        $messages = [
+            'full_name.required' => 'Full name is required',
+            'full_name.max' => 'Full name cannot exceed 255 characters',
+            'email.required' => 'Email is required',
+            'email.email' => 'Please provide a valid email address',
+            'email.unique' => 'This email is already registered',
+            'password.required' => 'Password is required',
+            'password.min' => 'Password must be at least 6 characters',
+            'password.confirmed' => 'Password confirmation does not match',
+            'role.required' => 'Role is required',
+            'role.in' => 'Invalid role selected',
+        ];
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
-        }
+        $validated = $request->validate([
+            'full_name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'password' => 'required|string|min:6|confirmed',
+            'role' => 'required|in:organizer,attendee'
+        ], $messages);
 
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
-        ]);
+    'name' => $validated['full_name'],
+    'email' => $validated['email'],
+    'password' => Hash::make($validated['password']),
+    'role' => $validated['role']
+]);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'data' => $user,
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-        ]);
+            'message' => 'Register successfully',
+            'token' => $token,
+            'user' => $user
+        ], 201);
     }
 
     public function login(Request $request)
