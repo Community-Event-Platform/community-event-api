@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use App\Models\Guest;
 use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,10 +16,12 @@ class DashboardController extends Controller
         // 1. Total Events
         $totalEvents = Event::where('organizer_id', $user->id)->count();
 
-        // 2. Total Participants (Unique guests across all organizer's events)
-        $totalParticipants = Guest::whereHas('event', function($query) use ($user) {
-            $query->where('organizer_id', $user->id);
-        })->count();
+        // 2. Total Participants (Unique registrations across all organizer's events)
+        $totalParticipants = DB::table('registrations')
+            ->join('events', 'registrations.event_id', '=', 'events.id')
+            ->where('events.organizer_id', $user->id)
+            ->distinct()
+            ->count('registrations.user_id');
 
         // 3. Active Events (Published)
         $activeEvents = Event::where('organizer_id', $user->id)

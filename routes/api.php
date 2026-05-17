@@ -28,7 +28,4 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events', [\App\Http\Controllers\EventController::class, 'store']);
     // Dashboard stats
     Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
-    // Guest management
-    Route::get('/guests', [\App\Http\Controllers\GuestController::class, 'index']);
-    Route::post('/guests', [\App\Http\Controllers\GuestController::class, 'store']);
 });
