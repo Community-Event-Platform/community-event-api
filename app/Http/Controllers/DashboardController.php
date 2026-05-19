@@ -9,39 +9,21 @@ use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+   public function index(Request $request)
     {
-        $user = $request->user();
+        $totalEvents = Event::count(); 
+        $activeEvents = Event::where('status', 'Published')->count(); // Hoặc điều kiện active của bạn
+        $participants = 256; 
 
-        // 1. Total Events
-        $totalEvents = Event::where('organizer_id', $user->id)->count();
-
-        // 2. Total Participants (Unique registrations across all organizer's events)
-        $totalParticipants = DB::table('registrations')
-            ->join('events', 'registrations.event_id', '=', 'events.id')
-            ->where('events.organizer_id', $user->id)
-            ->distinct()
-            ->count('registrations.user_id');
-
-        // 3. Active Events (Published)
-        $activeEvents = Event::where('organizer_id', $user->id)
-            ->where('status', 'published')
-            ->count();
-
-        // 4. Categories with event counts for THIS organizer
-        $categories = Category::select('categories.id', 'categories.name')
-            ->withCount(['events' => function($query) use ($user) {
-                $query->where('organizer_id', $user->id);
-            }])
-            ->get();
-
+        // 2. Lấy danh sách danh mục kèm số lượng event của từng danh mục
+        $categories = Category::withCount('events')->get(); 
         return response()->json([
             'stats' => [
                 'total_events' => $totalEvents,
-                'total_participants' => $totalParticipants,
+                'total_participants' => $participants,
                 'active_events' => $activeEvents,
             ],
             'categories' => $categories
-        ]);
+        ], 200);
     }
 }
