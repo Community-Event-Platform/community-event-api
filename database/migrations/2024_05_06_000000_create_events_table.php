@@ -11,16 +11,18 @@ return new class extends Migration
         Schema::create('events', function (Blueprint $table) {
             $table->id();
             $table->foreignId('organizer_id')->constrained('users')->onDelete('cascade');
-            $table->foreignId('category_id')->constrained('categories')->onDelete('cascade');
-            $table->string('name');
-            $table->text('description')->nullable();
-            $table->string('location');
-            $table->dateTime('event_date');
-            $table->integer('capacity');
-            $table->enum('status', ['draft', 'published', 'cancelled'])->default('draft');
-            $table->string('image_url')->nullable();
-            $table->string('image_public_id')->nullable();
-            $table->timestamp('created_at')->useCurrent();
+            $table->string('name', 255);
+            $table->text('description');
+            $table->string('category', 100); // VARCHAR thay vì FK categories
+            $table->string('location', 255);
+            $table->dateTime('date_time'); // Đổi từ event_date
+            $table->integer('capacity')->unsigned();
+            $table->string('event_type', 50)->default('Free'); // Mới
+            $table->string('status', 50)->default('Draft'); // Đổi từ ENUM
+            $table->boolean('require_additional_info')->default(false); // Mới
+            $table->text('custom_form_spec')->nullable(); // Mới
+            $table->softDeletes(); // Thêm deleted_at
+            $table->timestamps();
         });
     }
 
