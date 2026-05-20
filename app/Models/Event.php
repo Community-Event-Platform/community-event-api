@@ -15,9 +15,12 @@ class Event extends Model
         'name',
         'description',
         'location',
-        'event_date',
+        'date_time',
         'capacity',
+        'event_type',
         'status',
+        'require_additional_info',
+        'custom_form_spec'
     ];
 
     public function organizer()

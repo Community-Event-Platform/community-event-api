@@ -28,24 +28,28 @@ class EventController extends Controller
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'location' => 'required|string|max:255',
-            'event_date' => 'required|date',
+            'date_time' => 'required|date',
             'capacity' => 'required|integer|min:1',
-            'status' => 'required|in:published,draft,cancelled',
+            'status' => 'required|in:published,draft,cancelled,Draft',
             'category_id' => 'required|exists:categories,id',
+            'event_type' => 'required|in:Free,Paid',
+            'require_additional_info' => 'boolean',
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json(['message' => 'Validation failed', 'errors' => $validator->errors()], 422);
         }
 
         $event = Event::create([
             'name' => $request->name,
             'description' => $request->description,
             'location' => $request->location,
-            'event_date' => $request->event_date,
+            'date_time' => $request->date_time,
             'capacity' => $request->capacity,
             'status' => $request->status,
             'category_id' => $request->category_id,
+            'event_type' => $request->event_type,
+            'require_additional_info' => $request->require_additional_info ?? false,
             'organizer_id' => $user->id,
         ]);
 
