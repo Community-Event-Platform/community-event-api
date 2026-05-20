@@ -9,10 +9,10 @@ class Event extends Model
 {
     use HasFactory;
 
+    protected $table = 'events';
+
     protected $fillable = [
-        'organizer_id',
-        'category_id',
-        'name',
+        'title',
         'description',
         'location',
         'date_time',
@@ -23,11 +23,16 @@ class Event extends Model
         'custom_form_spec'
     ];
 
-    public function organizer()
-    {
-        return $this->belongsTo(User::class, 'organizer_id');
-    }
+   
+    protected $casts = [
+        'start_time' => 'datetime',
+        'end_time' => 'datetime',
+    ];
 
+    /**
+     * Mối quan hệ: Một Event thì thuộc về một Category duy nhất.
+     * Liên kết thông qua khóa ngoại 'category_id' trên bảng 'events'.
+     */
     public function category()
     {
         return $this->belongsTo(Category::class);
