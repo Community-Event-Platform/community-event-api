@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Models\Event;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\GoogleController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -18,6 +19,10 @@ Route::get('/categories', function () {
     return \App\Models\Category::all();
 });
 
+// Google OAuth routes
+Route::get('/auth/google/redirect', [GoogleController::class, 'redirect']);
+Route::get('/auth/google/callback', [GoogleController::class, 'callback']);
+
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -29,3 +34,4 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard stats
     Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });
+
