@@ -33,4 +33,13 @@ class Event extends Model
         return $this->belongsTo(Category::class);
     }
 
+    public function registrations()
+    {
+        return $this->hasMany(Registration::class, 'event_id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'event_id');
+    }
 }

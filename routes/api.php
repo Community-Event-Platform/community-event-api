@@ -26,6 +26,12 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     // Create event (Organizer only)
     Route::post('/events', [\App\Http\Controllers\EventController::class, 'store']);
+    // Update event (Organizer only)
+    Route::put('/events/{id}', [\App\Http\Controllers\EventController::class, 'update']);
+    // Delete event (Organizer only)
+    Route::delete('/events/{id}', [\App\Http\Controllers\EventController::class, 'destroy']);
+    // Get organizer's events
+    Route::get('/organizer/events', [\App\Http\Controllers\EventController::class, 'organizerEvents']);
     // Dashboard stats
     Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });

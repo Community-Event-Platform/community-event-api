@@ -21,7 +21,7 @@ class DashboardController extends Controller
             ->join('events', 'registrations.event_id', '=', 'events.id')
             ->where('events.organizer_id', $user->id)
             ->distinct()
-            ->count('registrations.user_id');
+            ->count('registrations.attendee_id');
 
         // 3. Active Events (Published)
         $activeEvents = Event::where('organizer_id', $user->id)
