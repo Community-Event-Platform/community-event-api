@@ -12,83 +12,83 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        // Khởi tạo các giá trị mặc định an toàn cho Front-end
+        // Safe defaults
         $totalEvents = 0;
+        $totalParticipants = 0;
         $activeEvents = 0;
-        $participants = 0;
         $categories = [];
 
         try {
             $user = $request->user();
-            if ($user) {
-                $organizerId = $user->id;
+            if (!$user) {
+                return response()->json([
+                    'stats' => [
+                        'total_events' => $totalEvents,
+                        'total_participants' => $totalParticipants,
+                        'active_events' => $activeEvents,
+                    ],
+                    'categories' => $categories
+                ], 200);
+            }
 
-                // 1. Đếm số lượng sự kiện của Organizer
-                try {
-                    $totalEvents = Event::where('organizer_id', $organizerId)->count();
-                    $activeEvents = Event::where('organizer_id', $organizerId)
-                                         ->where('status', 'Published')
-                                         ->count();
-                } catch (\Exception $e) {
-                    Log::error("Dashboard Stats Error (Events Count): " . $e->getMessage());
-                }
+            $organizerId = $user->id;
 
-                // 2. Tính số lượng người tham gia đăng ký (Bọc riêng để chống sập nếu sai tên bảng)
-                try {
-                    $participants = DB::table('registrations')
-                        ->join('events', 'registrations.event_id', '=', 'events.id')
-                        ->where('events.organizer_id', $organizerId)
-                        ->count();
-                } catch (\Exception $e) {
-                    Log::error("Dashboard Stats Error (Participants Join Count): " . $e->getMessage());
-                    $participants = 0; // Trả về 0 thay vì làm sập cả API
-                }
+            // 1) Total events for organizer
+            try {
+                $totalEvents = Event::where('organizer_id', $organizerId)->count();
+            } catch (\Exception $e) {
+                Log::error('Dashboard Stats Error (totalEvents): ' . $e->getMessage());
+                $totalEvents = 0;
+            }
 
-                // 3. Lấy danh sách danh mục kèm đếm số lượng sự kiện
-                try {
-                    $allCategories = Category::all();
-                    foreach ($allCategories as $cat) {
-                        $count = 0;
-                        try {
-                            $count = Event::where('category_id', $cat->id)
-                                          ->where('organizer_id', $organizerId)
-                                          ->count();
-                        } catch (\Exception $subEx) {
-                            Log::error("Dashboard Stats Sub-Error (Counting category ID {$cat->id} failed): " . $subEx->getMessage());
-                            $count = 0; 
-                        }
+            // 2) Active events (published)
+            try {
+                $activeEvents = Event::where('organizer_id', $organizerId)
+                    ->where('status', 'published')
+                    ->count();
+            } catch (\Exception $e) {
+                Log::error('Dashboard Stats Error (activeEvents): ' . $e->getMessage());
+                $activeEvents = 0;
+            }
 
-                        $categories[] = [
-                            'id' => $cat->id,
-                            'name' => $cat->name,
-                            'events_count' => $count
+            // 3) Total participants (unique attendees across organizer's events)
+            try {
+                $totalParticipants = DB::table('registrations')
+                    ->join('events', 'registrations.event_id', '=', 'events.id')
+                    ->where('events.organizer_id', $organizerId)
+                    ->distinct()
+                    ->count('registrations.attendee_id');
+            } catch (\Exception $e) {
+                Log::error('Dashboard Stats Error (participants): ' . $e->getMessage());
+                $totalParticipants = 0;
+            }
+
+            // 4) Categories with event counts for this organizer
+            try {
+                $categories = Category::select('categories.id', 'categories.name')
+                    ->withCount(['events' => function ($q) use ($organizerId) {
+                        $q->where('organizer_id', $organizerId);
+                    }])
+                    ->get()
+                    ->map(function ($c) {
+                        return [
+                            'id' => $c->id,
+                            'name' => $c->name,
+                            'events_count' => $c->events_count ?? 0,
                         ];
-                    }
-                } catch (\Exception $e) {
-                    Log::error("Dashboard Stats Error (Category main loop failed): " . $e->getMessage());
-                    // Nếu lỗi nặng, cố gắng trả về mảng danh mục thô không kèm đếm số lượng
-                    try {
-                        $categories = Category::all()->map(function($c) {
-                            return [
-                                'id' => $c->id,
-                                'name' => $c->name,
-                                'events_count' => 0
-                            ];
-                        })->toArray();
-                    } catch (\Exception $fallbackEx) {
-                        $categories = [];
-                    }
-                }
+                    });
+            } catch (\Exception $e) {
+                Log::error('Dashboard Stats Error (categories): ' . $e->getMessage());
+                $categories = [];
             }
         } catch (\Exception $e) {
-            Log::error("Dashboard Controller Global Crash: " . $e->getMessage());
+            Log::error('Dashboard Controller Global Exception: ' . $e->getMessage());
         }
 
-        // LUÔN LUÔN trả về HTTP 200 kèm cấu trúc JSON sạch để Front-end không bị lỗi 500
         return response()->json([
             'stats' => [
                 'total_events' => $totalEvents,
-                'total_participants' => $participants,
+                'total_participants' => $totalParticipants,
                 'active_events' => $activeEvents,
             ],
             'categories' => $categories
