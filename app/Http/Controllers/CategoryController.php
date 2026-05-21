@@ -33,8 +33,8 @@ class CategoryController extends Controller
         $request->validate([
             'name' => 'required|string|unique:categories,name|max:255',
         ], [
-            'name.required' => 'Vui lòng nhập tên danh mục.',
-            'name.unique' => 'Tên danh mục này đã tồn tại.',
+            'name.required' => 'Please enter a category name.',
+            'name.unique' => 'This category name already exists.',
         ]);
 
         $category = Category::create([
@@ -51,14 +51,27 @@ class CategoryController extends Controller
     {
         $category = Category::find($id);
         if (!$category) {
-            return response()->json(['message' => 'Không tìm thấy danh mục để chỉnh sửa.'], 404);
+            return response()->json(['message' => 'Category not found.'], 404);
+        }
+
+        $eventCount = 0;
+        try {
+            $eventCount = Event::where('category_id', $id)->count();
+        } catch (\Exception $e) {
+            $eventCount = 0;
+        }
+
+        if ($eventCount > 0) {
+            return response()->json([
+                'message' => 'Cannot edit this category because it has assigned events.'
+            ], 400);
         }
 
         $request->validate([
             'name' => 'required|string|unique:categories,name,'.$id.'|max:255',
         ], [
-            'name.required' => 'Vui lòng nhập tên danh mục.',
-            'name.unique' => 'Tên danh mục này đã tồn tại.',
+            'name.required' => 'Please enter a category name.',
+            'name.unique' => 'This category name already exists.',
         ]);
 
         $category->update([
@@ -75,10 +88,10 @@ class CategoryController extends Controller
     {
         $category = Category::find($id);
         if (!$category) {
-            return response()->json(['message' => 'Không tìm thấy danh mục cần xóa.'], 404);
+            return response()->json(['message' => 'Category not found.'], 404);
         }
 
-        // Đếm an toàn số lượng sự kiện thuộc danh mục này
+        // Count events safely for this category
         $eventCount = 0;
         try {
             $eventCount = Event::where('category_id', $id)->count();
@@ -89,14 +102,14 @@ class CategoryController extends Controller
         // Nếu có sự kiện gán vào danh mục này thì chặn ngay lập tức
         if ($eventCount > 0) {
             return response()->json([
-                'message' => "Không thể xóa danh mục này! Hiện đang có {$eventCount} sự kiện thuộc loại danh mục này."
+                'message' => "Cannot delete this category because it has {$eventCount} assigned events."
             ], 400); 
         }
 
         $category->delete();
 
         return response()->json([
-            'message' => 'Xóa danh mục thành công!'
+            'message' => 'Category deleted successfully!'
         ], 200);
     }
 }
