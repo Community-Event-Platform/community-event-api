@@ -83,6 +83,10 @@ class EventController extends Controller
 
         $event = Event::where('organizer_id', $user->id)->findOrFail($id);
 
+        if (strtolower($event->status) === 'published') {
+            return response()->json(['message' => 'Cannot update published events'], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
@@ -124,6 +128,11 @@ class EventController extends Controller
         }
 
         $event = Event::where('organizer_id', $user->id)->findOrFail($id);
+
+        if (strtolower($event->status) === 'published') {
+            return response()->json(['message' => 'Cannot delete published events'], 403);
+        }
+
         $event->delete();
 
         return response()->json(['message' => 'Event deleted successfully'], 200);
