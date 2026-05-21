@@ -23,13 +23,24 @@ class GoogleController extends Controller
                 ->stateless()
                 ->user();
 
-            // kiểm tra email đã tồn tại chưa
+            // Tìm user theo email (không bao gồm soft-deleted)
             $user = User::where('email', $googleUser->getEmail())
                 ->first();
 
+            // Tìm user đã bị xóa mềm trước đó
+            $deletedUser = User::withTrashed()
+                ->where('email', $googleUser->getEmail())
+                ->first();
+
+            // Nếu user không tồn tại nhưng có soft-deleted record
+            if (!$user && $deletedUser) {
+                // Khôi phục user đã bị xóa mềm
+                $deletedUser->restore();
+                $user = $deletedUser;
+            }
+
             // nếu chưa có => tạo mới
             if (!$user) {
-
                 $user = User::create([
                     'name' => $googleUser->getName(),
                     'email' => $googleUser->getEmail(),
