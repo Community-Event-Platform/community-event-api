@@ -11,21 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Remove foreign key from events before dropping categories to avoid constraint errors
-        if (Schema::hasTable('events')) {
-            Schema::table('events', function (Blueprint $table) {
-                if (Schema::hasColumn('events', 'category_id')) {
-                    // try to drop foreign key if exists
-                    try {
-                        $table->dropForeign(['category_id']);
-                    } catch (\Exception $e) {
-                        // ignore if foreign key doesn't exist
-                    }
-                }
-            });
-        }
-
-        Schema::dropIfExists('categories');
+        // Keep categories table for current feature branch.
+        // This migration is intentionally a no-op so category CRUD and event creation continue working.
     }
 
     /**
