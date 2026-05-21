@@ -31,13 +31,13 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     // Create event (Organizer only)
-    Route::post('/events', [EventController::class, 'store']);
-    
-    // Dashboard stats (Gộp cả thống kê và danh sách danh mục)
-    Route::get('/dashboard-stats', [DashboardController::class, 'index']);
-
-    // Các hành động CRUD danh mục của Organizer
-    Route::post('/categories', [CategoryController::class, 'store']);
-    Route::put('/categories/{id}', [CategoryController::class, 'update']);
-    Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
+    Route::post('/events', [\App\Http\Controllers\EventController::class, 'store']);
+    // Update event (Organizer only)
+    Route::put('/events/{id}', [\App\Http\Controllers\EventController::class, 'update']);
+    // Delete event (Organizer only)
+    Route::delete('/events/{id}', [\App\Http\Controllers\EventController::class, 'destroy']);
+    // Get organizer's events
+    Route::get('/organizer/events', [\App\Http\Controllers\EventController::class, 'organizerEvents']);
+    // Dashboard stats
+    Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });

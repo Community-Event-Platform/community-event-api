@@ -11,8 +11,9 @@ class Category extends Model
 
     protected $fillable = ['name'];
 
+    // PHẢI CÓ HÀM NÀY ĐỂ BACKEND ĐẾM ĐƯỢC SỰ KIỆN
     public function events()
     {
-        return $this->hasMany(Event::class);
+        return $this->hasMany(Event::class, 'category_id');
     }
 }

@@ -11,13 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
+        Schema::create('form_responses', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 255);
-            $table->string('email', 255)->unique();
-            $table->string('password')->nullable();
-            $table->string('role', 50); // VARCHAR thay vì ENUM
-            $table->string('google_id', 255)->nullable()->unique();
+            $table->foreignId('registration_id')->constrained('registrations')->onDelete('cascade');
+            $table->string('field_name', 255);
+            $table->string('field_type', 50);
+            $table->text('response_value')->nullable();
             $table->timestamps();
         });
     }
@@ -27,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('form_responses');
     }
 };

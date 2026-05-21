@@ -14,12 +14,12 @@ return new class extends Migration
         Schema::create('registrations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_id')->constrained('events')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->enum('status', ['confirmed', 'waitlist', 'cancelled']);
-            $table->integer('waitlist_position')->nullable();
-            $table->timestamp('created_at')->useCurrent();
+            $table->foreignId('attendee_id')->constrained('users')->onDelete('cascade'); // Đổi từ user_id
+            $table->string('status', 50)->default('Pending'); // Đổi từ ENUM
+            // Bỏ waitlist_position
+            $table->timestamps();
 
-            $table->unique(['event_id', 'user_id']);
+            $table->unique(['event_id', 'attendee_id']);
         });
     }
 

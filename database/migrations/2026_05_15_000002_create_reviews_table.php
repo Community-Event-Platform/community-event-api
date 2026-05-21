@@ -14,12 +14,12 @@ return new class extends Migration
         Schema::create('reviews', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_id')->constrained('events')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->integer('rating')->unsigned();
-            $table->string('comment', 300)->nullable();
-            $table->timestamp('created_at')->useCurrent();
+            $table->foreignId('attendee_id')->constrained('users')->onDelete('cascade'); // Đổi từ user_id
+            $table->unsignedTinyInteger('rating');
+            $table->string('comment', 300);
+            $table->timestamps();
 
-            $table->unique(['event_id', 'user_id']);
+            $table->unique(['event_id', 'attendee_id']);
         });
     }
 

@@ -9,25 +9,44 @@ class Event extends Model
 {
     use HasFactory;
 
+    protected $table = 'events';
+
     protected $fillable = [
-        'organizer_id',
-        'category_id',
         'name',
         'description',
+        'category_id',
         'location',
-        'event_date',
+        'date_time',
         'capacity',
+        'event_type',
         'status',
+        'require_additional_info',
+        'custom_form_spec',
+        'organizer_id',
     ];
 
-    public function organizer()
-    {
-        return $this->belongsTo(User::class, 'organizer_id');
-    }
+   
+    protected $casts = [
+        'start_time' => 'datetime',
+        'end_time' => 'datetime',
+    ];
 
+    /**
+     * Mối quan hệ: Một Event thì thuộc về một Category duy nhất.
+     * Liên kết thông qua khóa ngoại 'category_id' trên bảng 'events'.
+     */
     public function category()
     {
         return $this->belongsTo(Category::class);
     }
 
+    public function registrations()
+    {
+        return $this->hasMany(Registration::class, 'event_id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'event_id');
+    }
 }
