@@ -38,6 +38,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/events/{id}', [\App\Http\Controllers\EventController::class, 'destroy']);
     // Get organizer's events
     Route::get('/organizer/events', [\App\Http\Controllers\EventController::class, 'organizerEvents']);
+    // Category management (organizer only)
+    Route::post('/categories', [\App\Http\Controllers\CategoryController::class, 'store']);
+    Route::put('/categories/{id}', [\App\Http\Controllers\CategoryController::class, 'update']);
+    Route::delete('/categories/{id}', [\App\Http\Controllers\CategoryController::class, 'destroy']);
     // Dashboard stats
     Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });
