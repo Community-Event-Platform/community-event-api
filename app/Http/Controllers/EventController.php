@@ -40,6 +40,11 @@ class EventController extends Controller
             return response()->json(['message' => 'Forbidden: Only organizers can create events'], 403);
         }
 
+        // Map legacy event_date field to date_time for compatibility with older forms
+        if ($request->has('event_date') && !$request->has('date_time')) {
+            $request->merge(['date_time' => $request->input('event_date')]);
+        }
+
         // Validate input
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -94,6 +99,10 @@ class EventController extends Controller
 
         if (strtolower($event->status) === 'published') {
             return response()->json(['message' => 'Cannot update published events'], 403);
+        }
+
+        if ($request->has('event_date') && !$request->has('date_time')) {
+            $request->merge(['date_time' => $request->input('event_date')]);
         }
 
         $validator = Validator::make($request->all(), [
