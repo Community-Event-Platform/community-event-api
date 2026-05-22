@@ -22,6 +22,7 @@ class Event extends Model
         'status',
         'require_additional_info',
         'custom_form_spec',
+        'image',
         'organizer_id',
     ];
 
