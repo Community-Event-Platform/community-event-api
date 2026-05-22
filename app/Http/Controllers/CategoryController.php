@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
-use App\Models\Event; // ĐẢM BẢO PHẢI CÓ DÒNG NÀY ĐỂ KHÔNG BỊ LỖI CRASH ROUTE
+use App\Models\Event; 
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
@@ -12,14 +12,13 @@ class CategoryController extends Controller
     public function index()
     {
         try {
-            $categories = Category::withCount('events')->get();
+            $categories = Category::withCount('events')->orderByDesc('id')->get();
             return response()->json([
                 'categories' => $categories
             ], 200);
         } catch (\Exception $e) {
-            // Bao phòng thủ nếu bảng events chưa có cấu trúc liên kết
             return response()->json([
-                'categories' => Category::all()->map(function($cat) {
+                'categories' => Category::orderByDesc('id')->get()->map(function($cat) {
                     $cat->events_count = 0;
                     return $cat;
                 })
@@ -27,7 +26,7 @@ class CategoryController extends Controller
         }
     }
 
-    // 2. POST /api/categories - Luật 1: Chặn trùng tên khi tạo
+    // 2. POST /api/categories - Chặn trùng tên khi tạo
     public function store(Request $request)
     {
         $request->validate([
@@ -46,7 +45,7 @@ class CategoryController extends Controller
         ], 201);
     }
 
-    // 3. PUT /api/categories/{id} - Luật 3: Cho phép sửa tên nhưng chặn trùng với mục khác
+    // 3. PUT /api/categories/{id} -Cho phép sửa tên nhưng chặn trùng với mục khác
     public function update(Request $request, $id)
     {
         $category = Category::find($id);
@@ -83,7 +82,7 @@ class CategoryController extends Controller
         ], 200);
     }
 
-    // 4. DELETE /api/categories/{id} - Luật 2: Chặn xóa nếu có sự kiện thuộc danh mục (>0)
+    // 4. DELETE /api/categories/{id} -Chặn xóa nếu có sự kiện thuộc danh mục (>0)
     public function destroy($id)
     {
         $category = Category::find($id);
