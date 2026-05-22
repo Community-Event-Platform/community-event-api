@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class EventController extends Controller
@@ -51,10 +52,17 @@ class EventController extends Controller
             'event_type' => 'required|in:Free,Paid',
             'require_additional_info' => 'boolean',
             'custom_form_spec' => 'nullable',
+            'image' => 'nullable|image|max:5120',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+        }
+
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('public/event_images');
+            $imagePath = $imagePath ? Storage::url($imagePath) : null;
         }
 
         $event = Event::create([
@@ -68,6 +76,7 @@ class EventController extends Controller
             'event_type' => $request->event_type,
             'require_additional_info' => $request->require_additional_info ?? false,
             'custom_form_spec' => is_array($request->custom_form_spec) || is_object($request->custom_form_spec) ? json_encode($request->custom_form_spec) : $request->custom_form_spec,
+            'image' => $imagePath,
             'organizer_id' => $user->id,
         ]);
 
@@ -98,10 +107,17 @@ class EventController extends Controller
             'event_type' => 'required|in:Free,Paid',
             'require_additional_info' => 'boolean',
             'custom_form_spec' => 'nullable',
+            'image' => 'nullable|image|max:5120',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+        }
+
+        if ($request->hasFile('image')) {
+            $imagePath = $request->file('image')->store('public/event_images');
+            $imagePath = $imagePath ? Storage::url($imagePath) : null;
+            $event->image = $imagePath;
         }
 
         $event->update([
@@ -115,6 +131,7 @@ class EventController extends Controller
             'event_type' => $request->event_type,
             'require_additional_info' => $request->require_additional_info ?? false,
             'custom_form_spec' => is_array($request->custom_form_spec) || is_object($request->custom_form_spec) ? json_encode($request->custom_form_spec) : $request->custom_form_spec,
+            'image' => $event->image,
         ]);
 
         return response()->json(['data' => $event], 200);
