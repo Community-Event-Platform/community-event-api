@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -29,11 +28,19 @@ class DashboardController extends Controller
             ->count();
 
         // 4. Categories with event counts for THIS organizer
-        $categories = Category::select('categories.id', 'categories.name')
-            ->withCount(['events' => function($query) use ($user) {
-                $query->where('organizer_id', $user->id);
-            }])
-            ->get();
+        $categories = Event::select('category as name', DB::raw('COUNT(*) as events_count'))
+            ->where('organizer_id', $user->id)
+            ->groupBy('category')
+            ->orderBy('category')
+            ->get()
+            ->values()
+            ->map(function ($category, $index) {
+                return [
+                    'id' => $index + 1,
+                    'name' => $category->name,
+                    'events_count' => $category->events_count,
+                ];
+            });
 
         return response()->json([
             'stats' => [

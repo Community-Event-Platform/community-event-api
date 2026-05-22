@@ -16,7 +16,16 @@ Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
 
 // Public categories list for frontend dropdown
 Route::get('/categories', function () {
-    return \App\Models\Category::all();
+    return Event::select('category as name')
+        ->whereNotNull('category')
+        ->distinct()
+        ->orderBy('category')
+        ->get()
+        ->values()
+        ->map(fn ($category, $index) => [
+            'id' => $index + 1,
+            'name' => $category->name,
+        ]);
 });
 
 // Google OAuth routes
@@ -34,4 +43,3 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard stats
     Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });
-

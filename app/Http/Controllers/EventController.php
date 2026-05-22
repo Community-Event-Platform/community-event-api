@@ -10,8 +10,10 @@ class EventController extends Controller
 {
     public function index()
     {
-        // Fetch published events with their categories for the public facing organizer dashboard
-        $events = Event::with('category')->where('status', 'published')->latest()->take(10)->get();
+        $events = Event::where('status', 'published')
+            ->orderBy('date_time')
+            ->get();
+
         return response()->json(['data' => $events], 200);
     }
 
@@ -27,11 +29,14 @@ class EventController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'category' => 'required|string|max:100',
             'location' => 'required|string|max:255',
-            'event_date' => 'required|date',
+            'date_time' => 'required|date',
             'capacity' => 'required|integer|min:1',
             'status' => 'required|in:published,draft,cancelled',
-            'category_id' => 'required|exists:categories,id',
+            'event_type' => 'nullable|string|max:50',
+            'require_additional_info' => 'nullable|boolean',
+            'custom_form_spec' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -41,15 +46,17 @@ class EventController extends Controller
         $event = Event::create([
             'name' => $request->name,
             'description' => $request->description,
+            'category' => $request->category,
             'location' => $request->location,
-            'event_date' => $request->event_date,
+            'date_time' => $request->date_time,
             'capacity' => $request->capacity,
             'status' => $request->status,
-            'category_id' => $request->category_id,
+            'event_type' => $request->event_type ?? 'Free',
+            'require_additional_info' => $request->boolean('require_additional_info'),
+            'custom_form_spec' => $request->custom_form_spec,
             'organizer_id' => $user->id,
         ]);
 
         return response()->json(['data' => $event], 201);
     }
 }
-?>
