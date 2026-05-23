@@ -13,8 +13,8 @@ Route::get('/test-events', function () {
     return Event::all();
 });
 Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
-
-// Public categories list for frontend dropdown
+Route::get('/events/search', [\App\Http\Controllers\EventController::class, 'search']);
+Route::get('/events/featured', [\App\Http\Controllers\EventController::class, 'featured']);
 Route::get('/categories', function () {
     return \App\Models\Category::all();
 });
@@ -34,4 +34,3 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard stats
     Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });
-
