@@ -13,6 +13,7 @@ Route::get('/test-events', function () {
     return Event::all();
 });
 Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
+Route::get('/events/{id}', [\App\Http\Controllers\EventController::class, 'show']);
 
 // Public categories list for frontend dropdown
 Route::get('/categories', function () {
@@ -40,6 +41,10 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     // Create event (Organizer only)
     Route::post('/events', [\App\Http\Controllers\EventController::class, 'store']);
+    // Register event
+    Route::post('/events/{id}/register', [\App\Http\Controllers\EventController::class, 'register']);
+    // Create review
+    Route::post('/events/{id}/reviews', [\App\Http\Controllers\EventController::class, 'storeReview']);
     // Dashboard stats
     Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });

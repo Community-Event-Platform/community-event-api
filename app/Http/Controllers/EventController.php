@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\Registration;
+use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -59,4 +61,155 @@ class EventController extends Controller
 
         return response()->json(['data' => $event], 201);
     }
+
+    public function show(Request $request, $id)
+    {
+        $event = Event::with('organizer')->find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Đếm số người đã đăng ký
+        $registrationsCount = Registration::where('event_id', $event->id)->count();
+        $remainingSeats = max(0, $event->capacity - $registrationsCount);
+
+        // Tính toán đánh giá
+        $reviewsCount = Review::where('event_id', $event->id)->count();
+        $averageRating = Review::where('event_id', $event->id)->avg('rating') ?: 0.0;
+        $averageRating = round($averageRating, 1);
+
+        // Thống kê phân bố sao (Rating Breakdown)
+        $ratingBreakdown = [
+            '5' => Review::where('event_id', $event->id)->where('rating', 5)->count(),
+            '4' => Review::where('event_id', $event->id)->where('rating', 4)->count(),
+            '3' => Review::where('event_id', $event->id)->where('rating', 3)->count(),
+            '2' => Review::where('event_id', $event->id)->where('rating', 2)->count(),
+            '1' => Review::where('event_id', $event->id)->where('rating', 1)->count(),
+        ];
+
+        // Lấy danh sách đánh giá kèm thông tin người tham gia
+        $reviews = Review::with('attendee')
+            ->where('event_id', $event->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($review) {
+                return [
+                    'id' => $review->id,
+                    'rating' => $review->rating,
+                    'comment' => $review->comment,
+                    'created_at' => $review->created_at,
+                    'attendee' => [
+                        'name' => $review->attendee->name ?? 'Người dùng',
+                    ]
+                ];
+            });
+
+        $eventData = array_merge($event->toArray(), [
+            'registrations_count' => $registrationsCount,
+            'remaining_seats' => $remainingSeats,
+            'average_rating' => $averageRating,
+            'reviews_count' => $reviewsCount,
+            'rating_breakdown' => $ratingBreakdown,
+            'reviews' => $reviews,
+        ]);
+
+        return response()->json(['data' => $eventData], 200);
+    }
+
+    public function register(Request $request, $id)
+    {
+        $user = $request->user();
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Kiểm tra đã đăng ký chưa
+        $exists = Registration::where('event_id', $event->id)
+            ->where('attendee_id', $user->id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'Bạn đã đăng ký tham gia sự kiện này rồi!'], 400);
+        }
+
+        // Kiểm tra sức chứa còn trống không
+        $registrationsCount = Registration::where('event_id', $event->id)->count();
+        if ($registrationsCount >= $event->capacity) {
+            return response()->json(['message' => 'Sự kiện đã hết ghế trống!'], 400);
+        }
+
+        // Tạo đăng ký mới
+        $registration = Registration::create([
+            'event_id' => $event->id,
+            'attendee_id' => $user->id,
+            'status' => 'Approved', // Tự động duyệt đối với sự kiện mẫu
+        ]);
+
+        return response()->json([
+            'message' => 'Đăng ký tham gia thành công!',
+            'data' => $registration
+        ], 201);
+    }
+
+    public function storeReview(Request $request, $id)
+    {
+        $user = $request->user();
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Kiểm tra xem đã đăng ký tham gia chưa
+        $isRegistered = Registration::where('event_id', $event->id)
+            ->where('attendee_id', $user->id)
+            ->exists();
+
+        if (!$isRegistered) {
+            return response()->json(['message' => 'Bạn cần phải đăng ký tham gia sự kiện mới có thể đánh giá!'], 403);
+        }
+
+        // Kiểm tra xem đã đánh giá chưa
+        $isReviewed = Review::where('event_id', $event->id)
+            ->where('attendee_id', $user->id)
+            ->exists();
+
+        if ($isReviewed) {
+            return response()->json(['message' => 'Bạn đã gửi đánh giá cho sự kiện này rồi!'], 400);
+        }
+
+        // Validate
+        $validator = Validator::make($request->all(), [
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'required|string|max:300',
+        ], [
+            'rating.required' => 'Vui lòng chọn số sao đánh giá.',
+            'rating.integer' => 'Đánh giá không hợp lệ.',
+            'rating.min' => 'Đánh giá tối thiểu là 1 sao.',
+            'rating.max' => 'Đánh giá tối đa là 5 sao.',
+            'comment.required' => 'Vui lòng viết nhận xét đánh giá.',
+            'comment.max' => 'Nhận xét không được vượt quá 300 ký tự.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        // Tạo review
+        $review = Review::create([
+            'event_id' => $event->id,
+            'attendee_id' => $user->id,
+            'rating' => $request->rating,
+            'comment' => $request->comment,
+        ]);
+
+        return response()->json([
+            'message' => 'Gửi đánh giá thành công!',
+            'data' => $review
+        ], 201);
+    }
 }
+

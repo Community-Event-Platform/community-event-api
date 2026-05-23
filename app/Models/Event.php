@@ -33,4 +33,15 @@ class Event extends Model
     {
         return $this->belongsTo(User::class, 'organizer_id');
     }
+
+    public function registrations()
+    {
+        return $this->hasMany(Registration::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
 }
+
