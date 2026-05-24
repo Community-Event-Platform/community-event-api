@@ -14,7 +14,7 @@ class Event extends Model
         'organizer_id',
         'name',
         'description',
-        'category',
+        'category_id',
         'location',
         'date_time',
         'capacity',
@@ -31,8 +31,12 @@ class Event extends Model
     protected $casts = [
         'date_time' => 'datetime',
         'require_additional_info' => 'boolean',
+        'custom_form_spec' => 'array',
     ];
-
+    public function category()
+        {
+            return $this->belongsTo(Category::class, 'category_id');
+        }
     public function organizer()
     {
         return $this->belongsTo(User::class, 'organizer_id');

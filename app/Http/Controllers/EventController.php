@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\Category;
 use App\Models\Registration;
 use App\Models\Review;
 use Illuminate\Http\Request;
@@ -12,7 +13,8 @@ class EventController extends Controller
 {
     public function index()
     {
-        $events = Event::where('status', 'published')
+        $events = Event::with('category')
+            ->where('status', 'published')
             ->orderBy('date_time')
             ->get();
 
@@ -21,17 +23,15 @@ class EventController extends Controller
 
     public function store(Request $request)
     {
-        // Ensure user is authenticated via sanctum middleware
         $user = $request->user();
         if ($user->role !== 'organizer') {
             return response()->json(['message' => 'Forbidden: Only organizers can create events'], 403);
         }
 
-        // Validate input
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'category' => 'required|string|max:100',
+            'category_id' => 'required|exists:categories,id', // Kiểm tra ID có tồn tại trong bảng categories
             'location' => 'required|string|max:255',
             'date_time' => 'required|date',
             'capacity' => 'required|integer|min:1',
@@ -48,7 +48,7 @@ class EventController extends Controller
         $event = Event::create([
             'name' => $request->name,
             'description' => $request->description,
-            'category' => $request->category,
+            'category_id' => $request->category_id,
             'location' => $request->location,
             'date_time' => $request->date_time,
             'capacity' => $request->capacity,
@@ -64,22 +64,20 @@ class EventController extends Controller
 
     public function show(Request $request, $id)
     {
-        $event = Event::with('organizer')->find($id);
+        // Đã sửa: Load kèm cả organizer và category
+        $event = Event::with(['organizer', 'category'])->find($id);
 
         if (!$event) {
             return response()->json(['message' => 'Event not found'], 404);
         }
 
-        // Đếm số người đã đăng ký
         $registrationsCount = Registration::where('event_id', $event->id)->count();
         $remainingSeats = max(0, $event->capacity - $registrationsCount);
 
-        // Tính toán đánh giá
         $reviewsCount = Review::where('event_id', $event->id)->count();
         $averageRating = Review::where('event_id', $event->id)->avg('rating') ?: 0.0;
         $averageRating = round($averageRating, 1);
 
-        // Thống kê phân bố sao (Rating Breakdown)
         $ratingBreakdown = [
             '5' => Review::where('event_id', $event->id)->where('rating', 5)->count(),
             '4' => Review::where('event_id', $event->id)->where('rating', 4)->count(),
@@ -88,7 +86,6 @@ class EventController extends Controller
             '1' => Review::where('event_id', $event->id)->where('rating', 1)->count(),
         ];
 
-        // Lấy danh sách đánh giá kèm thông tin người tham gia
         $reviews = Review::with('attendee')
             ->where('event_id', $event->id)
             ->orderBy('created_at', 'desc')
@@ -126,7 +123,6 @@ class EventController extends Controller
             return response()->json(['message' => 'Event not found'], 404);
         }
 
-        // Kiểm tra đã đăng ký chưa
         $exists = Registration::where('event_id', $event->id)
             ->where('attendee_id', $user->id)
             ->exists();
@@ -135,17 +131,15 @@ class EventController extends Controller
             return response()->json(['message' => 'Bạn đã đăng ký tham gia sự kiện này rồi!'], 400);
         }
 
-        // Kiểm tra sức chứa còn trống không
         $registrationsCount = Registration::where('event_id', $event->id)->count();
         if ($registrationsCount >= $event->capacity) {
             return response()->json(['message' => 'Sự kiện đã hết ghế trống!'], 400);
         }
 
-        // Tạo đăng ký mới
         $registration = Registration::create([
             'event_id' => $event->id,
             'attendee_id' => $user->id,
-            'status' => 'Approved', // Tự động duyệt đối với sự kiện mẫu
+            'status' => 'Approved',
         ]);
 
         return response()->json([
@@ -163,7 +157,6 @@ class EventController extends Controller
             return response()->json(['message' => 'Event not found'], 404);
         }
 
-        // Kiểm tra xem đã đăng ký tham gia chưa
         $isRegistered = Registration::where('event_id', $event->id)
             ->where('attendee_id', $user->id)
             ->exists();
@@ -172,7 +165,6 @@ class EventController extends Controller
             return response()->json(['message' => 'Bạn cần phải đăng ký tham gia sự kiện mới có thể đánh giá!'], 403);
         }
 
-        // Kiểm tra xem đã đánh giá chưa
         $isReviewed = Review::where('event_id', $event->id)
             ->where('attendee_id', $user->id)
             ->exists();
@@ -181,7 +173,6 @@ class EventController extends Controller
             return response()->json(['message' => 'Bạn đã gửi đánh giá cho sự kiện này rồi!'], 400);
         }
 
-        // Validate
         $validator = Validator::make($request->all(), [
             'rating' => 'required|integer|min:1|max:5',
             'comment' => 'required|string|max:300',
@@ -198,7 +189,6 @@ class EventController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        // Tạo review
         $review = Review::create([
             'event_id' => $event->id,
             'attendee_id' => $user->id,
@@ -212,4 +202,3 @@ class EventController extends Controller
         ], 201);
     }
 }
-

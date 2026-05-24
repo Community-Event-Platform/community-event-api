@@ -5,6 +5,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
 use App\Models\Event;
+use App\Models\Category; 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GoogleController;
@@ -21,18 +22,12 @@ Route::get('/events/search', [\App\Http\Controllers\EventController::class, 'sea
 Route::get('/events/featured', [\App\Http\Controllers\EventController::class, 'featured']);
 Route::get('/events/{id}', [\App\Http\Controllers\EventController::class, 'show']);
 
-// Public categories list for frontend dropdown
+// Public categories list for frontend dropdown - ĐÃ SỬA DÒNG NÀY ĐỂ HẾT LỖI
 Route::get('/categories', function () {
-    return Event::select('category as name')
-        ->whereNotNull('category')
-        ->distinct()
-        ->orderBy('category')
-        ->get()
-        ->values()
-        ->map(fn ($category, $index) => [
-            'id' => $index + 1,
-            'name' => $category->name,
-        ]);
+    // Thay vì select từ bảng Event (cột category đã xóa), ta lấy trực tiếp từ bảng Category
+    return Category::select('id', 'name')
+        ->orderBy('name')
+        ->get();
 });
 
 // Google OAuth routes
@@ -42,11 +37,11 @@ Route::get('/auth/google/callback', [GoogleController::class, 'callback']);
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
-    
+
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
-    
+
     // Create event (Organizer only)
     Route::post('/events', [\App\Http\Controllers\EventController::class, 'store']);
     // Update event (Organizer only)

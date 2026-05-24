@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -62,20 +63,23 @@ class DashboardController extends Controller
                 $totalParticipants = 0;
             }
 
-            // 4. Categories with event counts for THIS organizer
-            $categories = Event::select('category as name', DB::raw('COUNT(*) as events_count'))
-                ->where('organizer_id', $user->id)
-                ->groupBy('category')
-                ->orderBy('category')
+            // 4. Categories with event counts for THIS organizer (ĐÃ SỬA TẠI ĐÂY)
+            // Lấy danh sách category và đếm số lượng event thuộc về organizer hiện tại
+            $categories = Category::whereHas('events', function($query) use ($organizerId) {
+                    $query->where('organizer_id', $organizerId);
+                })
+                ->withCount(['events' => function($query) use ($organizerId) {
+                    $query->where('organizer_id', $organizerId);
+                }])
                 ->get()
-                ->values()
-                ->map(function ($category, $index) {
+                ->map(function ($category) {
                     return [
-                        'id' => $index + 1,
+                        'id' => $category->id,
                         'name' => $category->name,
                         'events_count' => $category->events_count,
                     ];
                 });
+
         } catch (\Exception $e) {
             Log::error('Dashboard Controller Global Exception: ' . $e->getMessage());
         }

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
-use App\Models\Event; 
+use App\Models\Event;
 use Illuminate\Http\Request;
 
 class CategoryController extends Controller
@@ -12,7 +12,10 @@ class CategoryController extends Controller
     public function index()
     {
         try {
+            // Lấy danh mục kèm số lượng event dựa trên quan hệ category_id
             $categories = Category::withCount('events')->orderByDesc('id')->get();
+
+            // Nếu Frontend của bạn yêu cầu mảng JSON trực tiếp, hãy dùng: return response()->json($categories);
             return response()->json([
                 'categories' => $categories
             ], 200);
@@ -45,7 +48,7 @@ class CategoryController extends Controller
         ], 201);
     }
 
-    // 3. PUT /api/categories/{id} -Cho phép sửa tên nhưng chặn trùng với mục khác
+    // 3. PUT /api/categories/{id} - Cho phép sửa tên nhưng chặn nếu đã có event
     public function update(Request $request, $id)
     {
         $category = Category::find($id);
@@ -53,12 +56,8 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Category not found.'], 404);
         }
 
-        $eventCount = 0;
-        try {
-            $eventCount = Event::where('category_id', $id)->count();
-        } catch (\Exception $e) {
-            $eventCount = 0;
-        }
+    
+        $eventCount = Event::where('category_id', $id)->count();
 
         if ($eventCount > 0) {
             return response()->json([
@@ -82,7 +81,7 @@ class CategoryController extends Controller
         ], 200);
     }
 
-    // 4. DELETE /api/categories/{id} -Chặn xóa nếu có sự kiện thuộc danh mục (>0)
+    // 4. DELETE /api/categories/{id} - Chặn xóa nếu có sự kiện thuộc danh mục
     public function destroy($id)
     {
         $category = Category::find($id);
@@ -90,19 +89,13 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Category not found.'], 404);
         }
 
-        // Count events safely for this category
-        $eventCount = 0;
-        try {
-            $eventCount = Event::where('category_id', $id)->count();
-        } catch (\Exception $e) {
-            $eventCount = 0; 
-        }
+        // Đã sửa: Đếm số lượng event chính xác qua category_id
+        $eventCount = Event::where('category_id', $id)->count();
 
-        // Nếu có sự kiện gán vào danh mục này thì chặn ngay lập tức
         if ($eventCount > 0) {
             return response()->json([
                 'message' => "Cannot delete this category because it has {$eventCount} assigned events."
-            ], 400); 
+            ], 400);
         }
 
         $category->delete();
