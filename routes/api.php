@@ -12,9 +12,10 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test-events', function () {
     return Event::all();
 });
-Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
 Route::get('/events/search', [\App\Http\Controllers\EventController::class, 'search']);
 Route::get('/events/featured', [\App\Http\Controllers\EventController::class, 'featured']);
+Route::get('/events/{id}', [\App\Http\Controllers\EventController::class, 'show']);
+Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
 Route::get('/categories', function () {
     return \App\Models\Category::all();
 });

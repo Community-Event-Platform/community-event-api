@@ -135,6 +135,48 @@ class EventController extends Controller
     }
 
     /**
+     * Get a single event by ID
+     * GET /api/events/{id}
+     */
+    public function show($id)
+    {
+        $event = Event::where('status', 'Published')
+            ->with('organizer')
+            ->find($id);
+
+        if (!$event) {
+            return response()->json(['error' => 'Event not found'], 404);
+        }
+
+        // Get registration count for this event
+        $registrationCount = DB::table('registrations')
+            ->where('event_id', $id)
+            ->count();
+
+        $transformedEvent = [
+            'id' => $event->id,
+            'name' => $event->name,
+            'description' => $event->description,
+            'category' => $event->category ?? 'Community',
+            'location' => $event->location,
+            'date_time' => $event->date_time ?? $event->event_date,
+            'capacity' => $event->capacity,
+            'event_type' => $event->event_type ?? 'Free',
+            'status' => $event->status,
+            'image_url' => $event->image_url ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=300&fit=crop',
+            'attendees' => $event->attendees ?? $registrationCount,
+            'rating' => $event->rating ?? 4.5,
+            'price' => $event->price ?? ($event->event_type === 'Paid' ? 100000 : null),
+            'organizer' => $event->organizer ? [
+                'id' => $event->organizer->id,
+                'name' => $event->organizer->name,
+            ] : null,
+        ];
+
+        return response()->json(['data' => $transformedEvent], 200);
+    }
+
+    /**
      * Get featured events (top by rating/attendees)
      * GET /api/events/featured
      */
