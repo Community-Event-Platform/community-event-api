@@ -63,20 +63,19 @@ class DashboardController extends Controller
                 $totalParticipants = 0;
             }
 
-            // 4. Categories with event counts for THIS organizer (ĐÃ SỬA TẠI ĐÂY)
-            // Lấy danh sách category và đếm số lượng event thuộc về organizer hiện tại
-            $categories = Category::whereHas('events', function($query) use ($organizerId) {
-                    $query->where('organizer_id', $organizerId);
-                })
-                ->withCount(['events' => function($query) use ($organizerId) {
+            // 4. Categories with event counts for THIS organizer
+            // Return ALL categories but include a count of events belonging to this organizer.
+            // This ensures the dashboard shows the full category list while indicating per-organizer counts.
+            $categories = Category::withCount(['events' => function($query) use ($organizerId) {
                     $query->where('organizer_id', $organizerId);
                 }])
+                ->orderBy('name')
                 ->get()
                 ->map(function ($category) {
                     return [
                         'id' => $category->id,
                         'name' => $category->name,
-                        'events_count' => $category->events_count,
+                        'events_count' => $category->events_count ?? 0,
                     ];
                 });
 
