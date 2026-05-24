@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Category;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -10,18 +9,16 @@ class CategorySeeder extends Seeder
 {
     use WithoutModelEvents;
 
+    /**
+     * Seed the application's database.
+     * 
+     * NOTE: Categories table has been dropped.
+     * Categories are now stored as VARCHAR in the events.category column.
+     * Available categories: Conference, Workshop, Meetup, Webinar, Festival, Competition, Music, Sports
+     */
     public function run(): void
     {
-        $categories = [
-            ['name' => 'Conference'],
-            ['name' => 'Workshop'],
-            ['name' => 'Meetup'],
-            ['name' => 'Webinar'],
-            ['name' => 'Festival'],
-            ['name' => 'Competition'],
-        ];
-        foreach ($categories as $cat) {
-            Category::create($cat);
-        }
+        // This seeder is no longer needed as categories are now part of events table
+        // Categories are stored as string values in events.category column
     }
 }

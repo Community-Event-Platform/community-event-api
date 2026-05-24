@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -63,24 +62,20 @@ class DashboardController extends Controller
                 $totalParticipants = 0;
             }
 
-            // 4) Categories with event counts for this organizer
-            try {
-                $categories = Category::select('categories.id', 'categories.name')
-                    ->withCount(['events' => function ($q) use ($organizerId) {
-                        $q->where('organizer_id', $organizerId);
-                    }])
-                    ->get()
-                    ->map(function ($c) {
-                        return [
-                            'id' => $c->id,
-                            'name' => $c->name,
-                            'events_count' => $c->events_count ?? 0,
-                        ];
-                    });
-            } catch (\Exception $e) {
-                Log::error('Dashboard Stats Error (categories): ' . $e->getMessage());
-                $categories = [];
-            }
+            // 4. Categories with event counts for THIS organizer
+            $categories = Event::select('category as name', DB::raw('COUNT(*) as events_count'))
+                ->where('organizer_id', $user->id)
+                ->groupBy('category')
+                ->orderBy('category')
+                ->get()
+                ->values()
+                ->map(function ($category, $index) {
+                    return [
+                        'id' => $index + 1,
+                        'name' => $category->name,
+                        'events_count' => $category->events_count,
+                    ];
+                });
         } catch (\Exception $e) {
             Log::error('Dashboard Controller Global Exception: ' . $e->getMessage());
         }

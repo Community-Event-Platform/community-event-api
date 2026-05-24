@@ -7,6 +7,7 @@ use App\Http\Controllers\EventController;
 use App\Models\Event;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\GoogleController;
 
 // ===== Public routes =====
 Route::post('/register', [AuthController::class, 'register']);
@@ -15,6 +16,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test-events', function () {
     return Event::all();
 });
+<<<<<<< HEAD
 
 Route::get('/events', [EventController::class, 'index']);
 
@@ -23,6 +25,32 @@ Route::get('/categories', [CategoryController::class, 'index']);
 
 
 // ===== Protected routes (Yêu cầu đăng nhập qua Sanctum) =====
+=======
+Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
+Route::get('/events/search', [\App\Http\Controllers\EventController::class, 'search']);
+Route::get('/events/featured', [\App\Http\Controllers\EventController::class, 'featured']);
+Route::get('/events/{id}', [\App\Http\Controllers\EventController::class, 'show']);
+
+// Public categories list for frontend dropdown
+Route::get('/categories', function () {
+    return Event::select('category as name')
+        ->whereNotNull('category')
+        ->distinct()
+        ->orderBy('category')
+        ->get()
+        ->values()
+        ->map(fn ($category, $index) => [
+            'id' => $index + 1,
+            'name' => $category->name,
+        ]);
+});
+
+// Google OAuth routes
+Route::get('/auth/google/redirect', [GoogleController::class, 'redirect']);
+Route::get('/auth/google/callback', [GoogleController::class, 'callback']);
+
+// Protected routes
+>>>>>>> feature/CEP-15-attendee-homepage
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     
@@ -32,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
     
     // Create event (Organizer only)
     Route::post('/events', [\App\Http\Controllers\EventController::class, 'store']);
+<<<<<<< HEAD
     // Update event (Organizer only)
     Route::put('/events/{id}', [\App\Http\Controllers\EventController::class, 'update']);
     // Delete event (Organizer only)
@@ -42,6 +71,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/categories', [\App\Http\Controllers\CategoryController::class, 'store']);
     Route::put('/categories/{id}', [\App\Http\Controllers\CategoryController::class, 'update']);
     Route::delete('/categories/{id}', [\App\Http\Controllers\CategoryController::class, 'destroy']);
+=======
+    // Register event
+    Route::post('/events/{id}/register', [\App\Http\Controllers\EventController::class, 'register']);
+    // Create review
+    Route::post('/events/{id}/reviews', [\App\Http\Controllers\EventController::class, 'storeReview']);
+>>>>>>> feature/CEP-15-attendee-homepage
     // Dashboard stats
     Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });

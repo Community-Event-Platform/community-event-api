@@ -4,50 +4,48 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
 {
-    use HasFactory;
-
-    protected $table = 'events';
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'organizer_id',
         'name',
         'description',
-        'category_id',
+        'category',
         'location',
         'date_time',
         'capacity',
+        'attendees',
+        'rating',
+        'price',
         'event_type',
         'status',
         'require_additional_info',
         'custom_form_spec',
-        'image',
-        'organizer_id',
+        'image_url',
     ];
 
-   
     protected $casts = [
-        'start_time' => 'datetime',
-        'end_time' => 'datetime',
+        'date_time' => 'datetime',
+        'require_additional_info' => 'boolean',
     ];
 
-    /**
-     * Mối quan hệ: Một Event thì thuộc về một Category duy nhất.
-     * Liên kết thông qua khóa ngoại 'category_id' trên bảng 'events'.
-     */
-    public function category()
+    public function organizer()
     {
-        return $this->belongsTo(Category::class);
+        return $this->belongsTo(User::class, 'organizer_id');
     }
 
     public function registrations()
     {
-        return $this->hasMany(Registration::class, 'event_id');
+        return $this->hasMany(Registration::class);
     }
 
     public function reviews()
     {
-        return $this->hasMany(Review::class, 'event_id');
+        return $this->hasMany(Review::class);
     }
 }
+

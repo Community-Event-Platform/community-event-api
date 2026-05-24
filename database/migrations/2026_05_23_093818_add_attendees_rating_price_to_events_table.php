@@ -6,17 +6,25 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::table('events', function (Blueprint $table) {
-            $table->string('image_url', 500)->nullable()->after('custom_form_spec');
+            $table->unsignedInteger('attendees')->default(0)->after('event_type');
+            $table->decimal('rating', 3, 1)->default(4.5)->after('attendees');
+            $table->unsignedInteger('price')->nullable()->after('rating');
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::table('events', function (Blueprint $table) {
-            $table->dropColumn('image_url');
+            $table->dropColumn(['attendees', 'rating', 'price']);
         });
     }
 };

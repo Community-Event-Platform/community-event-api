@@ -8,15 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('events', function (Blueprint $table) {
-            $table->string('image_url', 500)->nullable()->after('custom_form_spec');
+        Schema::table('users', function (Blueprint $table) {
+            $table->string('avatar_url', 500)->nullable()->after('google_id');
         });
     }
 
     public function down(): void
     {
-        Schema::table('events', function (Blueprint $table) {
-            $table->dropColumn('image_url');
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('avatar_url');
         });
     }
 };

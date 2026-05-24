@@ -3,30 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\Registration;
+use App\Models\Review;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class EventController extends Controller
 {
     public function index()
     {
-        // Fetch published events with their categories for the public facing organizer dashboard
-        $events = Event::with('category')->where('status', 'published')->latest()->take(10)->get();
-        return response()->json(['data' => $events], 200);
-    }
-
-    public function organizerEvents(Request $request)
-    {
-        $user = $request->user();
-        if ($user->role !== 'organizer') {
-            return response()->json(['message' => 'Forbidden: Only organizers can view their events'], 403);
-        }
-
-        $events = Event::with('category')
-            ->withCount(['registrations', 'reviews'])
-            ->where('organizer_id', $user->id)
-            ->latest()
+        $events = Event::where('status', 'published')
+            ->orderBy('date_time')
             ->get();
 
         return response()->json(['data' => $events], 200);
@@ -40,128 +27,189 @@ class EventController extends Controller
             return response()->json(['message' => 'Forbidden: Only organizers can create events'], 403);
         }
 
-        // Map legacy event_date field to date_time for compatibility with older forms
-        if ($request->has('event_date') && !$request->has('date_time')) {
-            $request->merge(['date_time' => $request->input('event_date')]);
-        }
-
         // Validate input
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'category' => 'required|string|max:100',
             'location' => 'required|string|max:255',
             'date_time' => 'required|date',
             'capacity' => 'required|integer|min:1',
-            'status' => 'required|in:published,draft,cancelled,Draft',
-            'category_id' => 'required|exists:categories,id',
-            'event_type' => 'required|in:Free,Paid',
-            'require_additional_info' => 'boolean',
-            'custom_form_spec' => 'nullable',
-            'image' => 'nullable|image|max:5120',
+            'status' => 'required|in:published,draft,cancelled',
+            'event_type' => 'nullable|string|max:50',
+            'require_additional_info' => 'nullable|boolean',
+            'custom_form_spec' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['message' => 'Validation failed', 'errors' => $validator->errors()], 422);
-        }
-
-        $imagePath = null;
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('public/event_images');
-            $imagePath = $imagePath ? Storage::url($imagePath) : null;
+            return response()->json($validator->errors(), 422);
         }
 
         $event = Event::create([
             'name' => $request->name,
             'description' => $request->description,
+            'category' => $request->category,
             'location' => $request->location,
             'date_time' => $request->date_time,
             'capacity' => $request->capacity,
             'status' => $request->status,
-            'category_id' => $request->category_id,
-            'event_type' => $request->event_type,
-            'require_additional_info' => $request->require_additional_info ?? false,
-            'custom_form_spec' => is_array($request->custom_form_spec) || is_object($request->custom_form_spec) ? json_encode($request->custom_form_spec) : $request->custom_form_spec,
-            'image' => $imagePath,
+            'event_type' => $request->event_type ?? 'Free',
+            'require_additional_info' => $request->boolean('require_additional_info'),
+            'custom_form_spec' => $request->custom_form_spec,
             'organizer_id' => $user->id,
         ]);
 
         return response()->json(['data' => $event], 201);
     }
 
-    public function update(Request $request, $id)
+    public function show(Request $request, $id)
+    {
+        $event = Event::with('organizer')->find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Đếm số người đã đăng ký
+        $registrationsCount = Registration::where('event_id', $event->id)->count();
+        $remainingSeats = max(0, $event->capacity - $registrationsCount);
+
+        // Tính toán đánh giá
+        $reviewsCount = Review::where('event_id', $event->id)->count();
+        $averageRating = Review::where('event_id', $event->id)->avg('rating') ?: 0.0;
+        $averageRating = round($averageRating, 1);
+
+        // Thống kê phân bố sao (Rating Breakdown)
+        $ratingBreakdown = [
+            '5' => Review::where('event_id', $event->id)->where('rating', 5)->count(),
+            '4' => Review::where('event_id', $event->id)->where('rating', 4)->count(),
+            '3' => Review::where('event_id', $event->id)->where('rating', 3)->count(),
+            '2' => Review::where('event_id', $event->id)->where('rating', 2)->count(),
+            '1' => Review::where('event_id', $event->id)->where('rating', 1)->count(),
+        ];
+
+        // Lấy danh sách đánh giá kèm thông tin người tham gia
+        $reviews = Review::with('attendee')
+            ->where('event_id', $event->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($review) {
+                return [
+                    'id' => $review->id,
+                    'rating' => $review->rating,
+                    'comment' => $review->comment,
+                    'created_at' => $review->created_at,
+                    'attendee' => [
+                        'name' => $review->attendee->name ?? 'Người dùng',
+                    ]
+                ];
+            });
+
+        $eventData = array_merge($event->toArray(), [
+            'registrations_count' => $registrationsCount,
+            'remaining_seats' => $remainingSeats,
+            'average_rating' => $averageRating,
+            'reviews_count' => $reviewsCount,
+            'rating_breakdown' => $ratingBreakdown,
+            'reviews' => $reviews,
+        ]);
+
+        return response()->json(['data' => $eventData], 200);
+    }
+
+    public function register(Request $request, $id)
     {
         $user = $request->user();
-        if ($user->role !== 'organizer') {
-            return response()->json(['message' => 'Forbidden: Only organizers can update events'], 403);
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
         }
 
-        $event = Event::where('organizer_id', $user->id)->findOrFail($id);
+        // Kiểm tra đã đăng ký chưa
+        $exists = Registration::where('event_id', $event->id)
+            ->where('attendee_id', $user->id)
+            ->exists();
 
-        if (strtolower($event->status) === 'published') {
-            return response()->json(['message' => 'Cannot update published events'], 403);
+        if ($exists) {
+            return response()->json(['message' => 'Bạn đã đăng ký tham gia sự kiện này rồi!'], 400);
         }
 
-        if ($request->has('event_date') && !$request->has('date_time')) {
-            $request->merge(['date_time' => $request->input('event_date')]);
+        // Kiểm tra sức chứa còn trống không
+        $registrationsCount = Registration::where('event_id', $event->id)->count();
+        if ($registrationsCount >= $event->capacity) {
+            return response()->json(['message' => 'Sự kiện đã hết ghế trống!'], 400);
         }
 
+        // Tạo đăng ký mới
+        $registration = Registration::create([
+            'event_id' => $event->id,
+            'attendee_id' => $user->id,
+            'status' => 'Approved', // Tự động duyệt đối với sự kiện mẫu
+        ]);
+
+        return response()->json([
+            'message' => 'Đăng ký tham gia thành công!',
+            'data' => $registration
+        ], 201);
+    }
+
+    public function storeReview(Request $request, $id)
+    {
+        $user = $request->user();
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Kiểm tra xem đã đăng ký tham gia chưa
+        $isRegistered = Registration::where('event_id', $event->id)
+            ->where('attendee_id', $user->id)
+            ->exists();
+
+        if (!$isRegistered) {
+            return response()->json(['message' => 'Bạn cần phải đăng ký tham gia sự kiện mới có thể đánh giá!'], 403);
+        }
+
+        // Kiểm tra xem đã đánh giá chưa
+        $isReviewed = Review::where('event_id', $event->id)
+            ->where('attendee_id', $user->id)
+            ->exists();
+
+        if ($isReviewed) {
+            return response()->json(['message' => 'Bạn đã gửi đánh giá cho sự kiện này rồi!'], 400);
+        }
+
+        // Validate
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'location' => 'required|string|max:255',
-            'date_time' => 'required|date',
-            'capacity' => 'required|integer|min:1',
-            'status' => 'required|in:published,draft,cancelled,Draft',
-            'category_id' => 'required|exists:categories,id',
-            'event_type' => 'required|in:Free,Paid',
-            'require_additional_info' => 'boolean',
-            'custom_form_spec' => 'nullable',
-            'image' => 'nullable|image|max:5120',
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'required|string|max:300',
+        ], [
+            'rating.required' => 'Vui lòng chọn số sao đánh giá.',
+            'rating.integer' => 'Đánh giá không hợp lệ.',
+            'rating.min' => 'Đánh giá tối thiểu là 1 sao.',
+            'rating.max' => 'Đánh giá tối đa là 5 sao.',
+            'comment.required' => 'Vui lòng viết nhận xét đánh giá.',
+            'comment.max' => 'Nhận xét không được vượt quá 300 ký tự.',
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['message' => 'Validation failed', 'errors' => $validator->errors()], 422);
+            return response()->json($validator->errors(), 422);
         }
 
-        if ($request->hasFile('image')) {
-            $imagePath = $request->file('image')->store('public/event_images');
-            $imagePath = $imagePath ? Storage::url($imagePath) : null;
-            $event->image = $imagePath;
-        }
-
-        $event->update([
-            'name' => $request->name,
-            'description' => $request->description,
-            'location' => $request->location,
-            'date_time' => $request->date_time,
-            'capacity' => $request->capacity,
-            'status' => $request->status,
-            'category_id' => $request->category_id,
-            'event_type' => $request->event_type,
-            'require_additional_info' => $request->require_additional_info ?? false,
-            'custom_form_spec' => is_array($request->custom_form_spec) || is_object($request->custom_form_spec) ? json_encode($request->custom_form_spec) : $request->custom_form_spec,
-            'image' => $event->image,
+        // Tạo review
+        $review = Review::create([
+            'event_id' => $event->id,
+            'attendee_id' => $user->id,
+            'rating' => $request->rating,
+            'comment' => $request->comment,
         ]);
 
-        return response()->json(['data' => $event], 200);
-    }
-
-    public function destroy(Request $request, $id)
-    {
-        $user = $request->user();
-        if ($user->role !== 'organizer') {
-            return response()->json(['message' => 'Forbidden: Only organizers can delete events'], 403);
-        }
-
-        $event = Event::where('organizer_id', $user->id)->findOrFail($id);
-
-        if (strtolower($event->status) === 'published') {
-            return response()->json(['message' => 'Cannot delete published events'], 403);
-        }
-
-        $event->delete();
-
-        return response()->json(['message' => 'Event deleted successfully'], 200);
+        return response()->json([
+            'message' => 'Gửi đánh giá thành công!',
+            'data' => $review
+        ], 201);
     }
 }
-?>
+
