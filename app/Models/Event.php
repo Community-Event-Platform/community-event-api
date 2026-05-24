@@ -4,27 +4,29 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'organizer_id',
-        'category_id',
         'name',
         'description',
+        'category',
         'location',
-        'event_date',
         'date_time',
         'capacity',
         'event_type',
         'status',
-        'image_url',
         'require_additional_info',
-        'attendees',
-        'rating',
-        'price',
+        'custom_form_spec',
+    ];
+
+    protected $casts = [
+        'date_time' => 'datetime',
+        'require_additional_info' => 'boolean',
     ];
 
     public function organizer()
@@ -32,9 +34,14 @@ class Event extends Model
         return $this->belongsTo(User::class, 'organizer_id');
     }
 
-    public function category()
+    public function registrations()
     {
-        return $this->belongsTo(Category::class);
+        return $this->hasMany(Registration::class);
     }
 
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
 }
+

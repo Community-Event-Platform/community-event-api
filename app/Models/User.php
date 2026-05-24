@@ -52,4 +52,15 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function registrations()
+    {
+        return $this->hasMany(Registration::class, 'attendee_id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'attendee_id');
+    }
 }
+

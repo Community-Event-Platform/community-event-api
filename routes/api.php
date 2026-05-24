@@ -12,12 +12,23 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test-events', function () {
     return Event::all();
 });
+Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
 Route::get('/events/search', [\App\Http\Controllers\EventController::class, 'search']);
 Route::get('/events/featured', [\App\Http\Controllers\EventController::class, 'featured']);
 Route::get('/events/{id}', [\App\Http\Controllers\EventController::class, 'show']);
-Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
+
+// Public categories list for frontend dropdown
 Route::get('/categories', function () {
-    return \App\Models\Category::all();
+    return Event::select('category as name')
+        ->whereNotNull('category')
+        ->distinct()
+        ->orderBy('category')
+        ->get()
+        ->values()
+        ->map(fn ($category, $index) => [
+            'id' => $index + 1,
+            'name' => $category->name,
+        ]);
 });
 
 // Google OAuth routes
@@ -32,6 +43,10 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     // Create event (Organizer only)
     Route::post('/events', [\App\Http\Controllers\EventController::class, 'store']);
+    // Register event
+    Route::post('/events/{id}/register', [\App\Http\Controllers\EventController::class, 'register']);
+    // Create review
+    Route::post('/events/{id}/reviews', [\App\Http\Controllers\EventController::class, 'storeReview']);
     // Dashboard stats
     Route::get('/dashboard-stats', [\App\Http\Controllers\DashboardController::class, 'index']);
 });

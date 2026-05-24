@@ -3,220 +3,20 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\Registration;
+use App\Models\Review;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class EventController extends Controller
 {
-    public function index(Request $request)
+    public function index()
     {
-        // Fetch all published events
-        $events = Event::where('status', 'Published')
-            ->with('organizer')
+        $events = Event::where('status', 'published')
+            ->orderBy('date_time')
             ->get();
 
-        // Get registrations count for each event
-        $registrationsCounts = DB::table('registrations')
-            ->select('event_id', DB::raw('COUNT(*) as count'))
-            ->groupBy('event_id')
-            ->pluck('count', 'event_id');
-
-        // Transform data to match frontend expectations
-        $transformedEvents = $events->map(function ($event) use ($registrationsCounts) {
-            return [
-                'id' => $event->id,
-                'name' => $event->name,
-                'description' => $event->description,
-                'category' => $event->category ?? 'Community',
-                'location' => $event->location,
-                'date_time' => $event->date_time ?? $event->event_date,
-                'capacity' => $event->capacity,
-                'event_type' => $event->event_type ?? 'Free',
-                'status' => $event->status,
-                'image_url' => $event->image_url ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=300&fit=crop',
-                'attendees' => $event->attendees ?? $registrationsCounts[$event->id] ?? 0,
-                'rating' => $event->rating ?? 4.5,
-                'price' => $event->price ?? ($event->event_type === 'Paid' ? 100000 : null),
-                'organizer' => $event->organizer ? [
-                    'id' => $event->organizer->id,
-                    'name' => $event->organizer->name,
-                ] : null,
-            ];
-        });
-
-        return response()->json(['data' => $transformedEvents, 'count' => count($transformedEvents)], 200);
-    }
-
-    /**
-     * Search and filter events
-     * GET /api/events/search
-     */
-    public function search(Request $request)
-    {
-        $query = Event::where('status', 'Published')->with('organizer');
-
-        // Search by keyword (name, description, location)
-        if ($request->has('q') && $request->q) {
-            $searchTerm = '%' . $request->q . '%';
-            $query->where(function($q) use ($searchTerm) {
-                $q->where('name', 'like', $searchTerm)
-                  ->orWhere('description', 'like', $searchTerm)
-                  ->orWhere('location', 'like', $searchTerm);
-            });
-        }
-
-        // Filter by category
-        if ($request->has('category') && $request->category) {
-            $query->where('category', $request->category);
-        }
-
-        // Filter by event_type (Free/Paid)
-        if ($request->has('event_type') && $request->event_type) {
-            $query->where('event_type', $request->event_type);
-        }
-
-        // Filter by date range
-        if ($request->has('date_from')) {
-            $query->where('date_time', '>=', $request->date_from);
-        }
-        if ($request->has('date_to')) {
-            $query->where('date_time', '<=', $request->date_to . ' 23:59:59');
-        }
-
-        // Sort by field (default: date_time)
-        $sortField = $request->get('sort_by', 'date_time');
-        $sortOrder = $request->get('sort_order', 'asc');
-        $allowedSortFields = ['date_time', 'name', 'rating', 'attendees'];
-        if (in_array($sortField, $allowedSortFields)) {
-            $query->orderBy($sortField, $sortOrder === 'desc' ? 'desc' : 'asc');
-        }
-
-        // Pagination
-        $perPage = $request->get('per_page', 12);
-        $events = $query->paginate($perPage);
-
-        // Get registrations count
-        $registrationsCounts = DB::table('registrations')
-            ->select('event_id', DB::raw('COUNT(*) as count'))
-            ->groupBy('event_id')
-            ->pluck('count', 'event_id');
-
-        // Transform data
-        $transformedEvents = $events->map(function ($event) use ($registrationsCounts) {
-            return [
-                'id' => $event->id,
-                'name' => $event->name,
-                'description' => $event->description,
-                'category' => $event->category ?? 'Community',
-                'location' => $event->location,
-                'date_time' => $event->date_time ?? $event->event_date,
-                'capacity' => $event->capacity,
-                'event_type' => $event->event_type ?? 'Free',
-                'status' => $event->status,
-                'image_url' => $event->image_url ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=300&fit=crop',
-                'attendees' => $event->attendees ?? $registrationsCounts[$event->id] ?? 0,
-                'rating' => $event->rating ?? 4.5,
-                'price' => $event->price ?? ($event->event_type === 'Paid' ? 100000 : null),
-                'organizer' => $event->organizer ? [
-                    'id' => $event->organizer->id,
-                    'name' => $event->organizer->name,
-                ] : null,
-            ];
-        });
-
-        return response()->json([
-            'data' => $transformedEvents,
-            'count' => $events->total(),
-            'current_page' => $events->currentPage(),
-            'last_page' => $events->lastPage(),
-            'per_page' => $events->perPage(),
-        ], 200);
-    }
-
-    /**
-     * Get a single event by ID
-     * GET /api/events/{id}
-     */
-    public function show($id)
-    {
-        $event = Event::where('status', 'Published')
-            ->with('organizer')
-            ->find($id);
-
-        if (!$event) {
-            return response()->json(['error' => 'Event not found'], 404);
-        }
-
-        // Get registration count for this event
-        $registrationCount = DB::table('registrations')
-            ->where('event_id', $id)
-            ->count();
-
-        $transformedEvent = [
-            'id' => $event->id,
-            'name' => $event->name,
-            'description' => $event->description,
-            'category' => $event->category ?? 'Community',
-            'location' => $event->location,
-            'date_time' => $event->date_time ?? $event->event_date,
-            'capacity' => $event->capacity,
-            'event_type' => $event->event_type ?? 'Free',
-            'status' => $event->status,
-            'image_url' => $event->image_url ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=300&fit=crop',
-            'attendees' => $event->attendees ?? $registrationCount,
-            'rating' => $event->rating ?? 4.5,
-            'price' => $event->price ?? ($event->event_type === 'Paid' ? 100000 : null),
-            'organizer' => $event->organizer ? [
-                'id' => $event->organizer->id,
-                'name' => $event->organizer->name,
-            ] : null,
-        ];
-
-        return response()->json(['data' => $transformedEvent], 200);
-    }
-
-    /**
-     * Get featured events (top by rating/attendees)
-     * GET /api/events/featured
-     */
-    public function featured()
-    {
-        $events = Event::where('status', 'Published')
-            ->with('organizer')
-            ->orderBy('rating', 'desc')
-            ->orderBy('attendees', 'desc')
-            ->limit(4)
-            ->get();
-
-        $registrationsCounts = DB::table('registrations')
-            ->select('event_id', DB::raw('COUNT(*) as count'))
-            ->groupBy('event_id')
-            ->pluck('count', 'event_id');
-
-        $transformedEvents = $events->map(function ($event) use ($registrationsCounts) {
-            return [
-                'id' => $event->id,
-                'name' => $event->name,
-                'description' => $event->description,
-                'category' => $event->category ?? 'Community',
-                'location' => $event->location,
-                'date_time' => $event->date_time ?? $event->event_date,
-                'capacity' => $event->capacity,
-                'event_type' => $event->event_type ?? 'Free',
-                'status' => $event->status,
-                'image_url' => $event->image_url ?? 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=500&h=300&fit=crop',
-                'attendees' => $event->attendees ?? $registrationsCounts[$event->id] ?? 0,
-                'rating' => $event->rating ?? 4.5,
-                'price' => $event->price ?? ($event->event_type === 'Paid' ? 100000 : null),
-                'organizer' => $event->organizer ? [
-                    'id' => $event->organizer->id,
-                    'name' => $event->organizer->name,
-                ] : null,
-            ];
-        });
-
-        return response()->json(['data' => $transformedEvents, 'count' => count($transformedEvents)], 200);
+        return response()->json(['data' => $events], 200);
     }
 
     public function store(Request $request)
@@ -231,11 +31,14 @@ class EventController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
+            'category' => 'required|string|max:100',
             'location' => 'required|string|max:255',
-            'event_date' => 'required|date',
+            'date_time' => 'required|date',
             'capacity' => 'required|integer|min:1',
             'status' => 'required|in:published,draft,cancelled',
-            'category_id' => 'required|exists:categories,id',
+            'event_type' => 'nullable|string|max:50',
+            'require_additional_info' => 'nullable|boolean',
+            'custom_form_spec' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -245,14 +48,168 @@ class EventController extends Controller
         $event = Event::create([
             'name' => $request->name,
             'description' => $request->description,
+            'category' => $request->category,
             'location' => $request->location,
-            'event_date' => $request->event_date,
+            'date_time' => $request->date_time,
             'capacity' => $request->capacity,
             'status' => $request->status,
-            'category_id' => $request->category_id,
+            'event_type' => $request->event_type ?? 'Free',
+            'require_additional_info' => $request->boolean('require_additional_info'),
+            'custom_form_spec' => $request->custom_form_spec,
             'organizer_id' => $user->id,
         ]);
 
         return response()->json(['data' => $event], 201);
     }
+
+    public function show(Request $request, $id)
+    {
+        $event = Event::with('organizer')->find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Đếm số người đã đăng ký
+        $registrationsCount = Registration::where('event_id', $event->id)->count();
+        $remainingSeats = max(0, $event->capacity - $registrationsCount);
+
+        // Tính toán đánh giá
+        $reviewsCount = Review::where('event_id', $event->id)->count();
+        $averageRating = Review::where('event_id', $event->id)->avg('rating') ?: 0.0;
+        $averageRating = round($averageRating, 1);
+
+        // Thống kê phân bố sao (Rating Breakdown)
+        $ratingBreakdown = [
+            '5' => Review::where('event_id', $event->id)->where('rating', 5)->count(),
+            '4' => Review::where('event_id', $event->id)->where('rating', 4)->count(),
+            '3' => Review::where('event_id', $event->id)->where('rating', 3)->count(),
+            '2' => Review::where('event_id', $event->id)->where('rating', 2)->count(),
+            '1' => Review::where('event_id', $event->id)->where('rating', 1)->count(),
+        ];
+
+        // Lấy danh sách đánh giá kèm thông tin người tham gia
+        $reviews = Review::with('attendee')
+            ->where('event_id', $event->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($review) {
+                return [
+                    'id' => $review->id,
+                    'rating' => $review->rating,
+                    'comment' => $review->comment,
+                    'created_at' => $review->created_at,
+                    'attendee' => [
+                        'name' => $review->attendee->name ?? 'Người dùng',
+                    ]
+                ];
+            });
+
+        $eventData = array_merge($event->toArray(), [
+            'registrations_count' => $registrationsCount,
+            'remaining_seats' => $remainingSeats,
+            'average_rating' => $averageRating,
+            'reviews_count' => $reviewsCount,
+            'rating_breakdown' => $ratingBreakdown,
+            'reviews' => $reviews,
+        ]);
+
+        return response()->json(['data' => $eventData], 200);
+    }
+
+    public function register(Request $request, $id)
+    {
+        $user = $request->user();
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Kiểm tra đã đăng ký chưa
+        $exists = Registration::where('event_id', $event->id)
+            ->where('attendee_id', $user->id)
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'Bạn đã đăng ký tham gia sự kiện này rồi!'], 400);
+        }
+
+        // Kiểm tra sức chứa còn trống không
+        $registrationsCount = Registration::where('event_id', $event->id)->count();
+        if ($registrationsCount >= $event->capacity) {
+            return response()->json(['message' => 'Sự kiện đã hết ghế trống!'], 400);
+        }
+
+        // Tạo đăng ký mới
+        $registration = Registration::create([
+            'event_id' => $event->id,
+            'attendee_id' => $user->id,
+            'status' => 'Approved', // Tự động duyệt đối với sự kiện mẫu
+        ]);
+
+        return response()->json([
+            'message' => 'Đăng ký tham gia thành công!',
+            'data' => $registration
+        ], 201);
+    }
+
+    public function storeReview(Request $request, $id)
+    {
+        $user = $request->user();
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Kiểm tra xem đã đăng ký tham gia chưa
+        $isRegistered = Registration::where('event_id', $event->id)
+            ->where('attendee_id', $user->id)
+            ->exists();
+
+        if (!$isRegistered) {
+            return response()->json(['message' => 'Bạn cần phải đăng ký tham gia sự kiện mới có thể đánh giá!'], 403);
+        }
+
+        // Kiểm tra xem đã đánh giá chưa
+        $isReviewed = Review::where('event_id', $event->id)
+            ->where('attendee_id', $user->id)
+            ->exists();
+
+        if ($isReviewed) {
+            return response()->json(['message' => 'Bạn đã gửi đánh giá cho sự kiện này rồi!'], 400);
+        }
+
+        // Validate
+        $validator = Validator::make($request->all(), [
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'required|string|max:300',
+        ], [
+            'rating.required' => 'Vui lòng chọn số sao đánh giá.',
+            'rating.integer' => 'Đánh giá không hợp lệ.',
+            'rating.min' => 'Đánh giá tối thiểu là 1 sao.',
+            'rating.max' => 'Đánh giá tối đa là 5 sao.',
+            'comment.required' => 'Vui lòng viết nhận xét đánh giá.',
+            'comment.max' => 'Nhận xét không được vượt quá 300 ký tự.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        // Tạo review
+        $review = Review::create([
+            'event_id' => $event->id,
+            'attendee_id' => $user->id,
+            'rating' => $request->rating,
+            'comment' => $request->comment,
+        ]);
+
+        return response()->json([
+            'message' => 'Gửi đánh giá thành công!',
+            'data' => $review
+        ], 201);
+    }
 }
+
