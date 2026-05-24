@@ -39,7 +39,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Có vé hoặc mã check-in hợp lệ.
 - Tôn trọng không gian và người tham dự khác.',
-                'category' => 'Music',
+                'category_id' => 'Music',
                 'location' => 'The Riverside Cafe, Đà Nẵng',
                 'date_time' => '2026-06-12 19:00:00',
                 'capacity' => 120,
@@ -67,7 +67,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Có kiến thức cơ bản về máy tính.
 - Tham gia đầy đủ phần thực hành.',
-                'category' => 'Workshop',
+                'category_id' => 'Workshop',
                 'location' => 'Innovation Hub, TP. Hồ Chí Minh',
                 'date_time' => '2026-06-18 09:00:00',
                 'capacity' => 60,
@@ -95,7 +95,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Đảm bảo đủ sức khỏe tham gia hoạt động thể chất.
 - Tuân thủ hướng dẫn của ban tổ chức.',
-                'category' => 'Sports',
+                'category_id' => 'Sports',
                 'location' => 'Công viên Gia Định, TP. Hồ Chí Minh',
                 'date_time' => '2026-06-21 06:00:00',
                 'capacity' => 500,
@@ -123,7 +123,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Quan tâm đến công nghệ và giáo dục.
 - Tham gia đúng giờ để không bỏ lỡ nội dung chính.',
-                'category' => 'Technology',
+                'category_id' => 'Technology',
                 'location' => 'Đại học Bách Khoa Hà Nội',
                 'date_time' => '2026-06-25 14:00:00',
                 'capacity' => 200,
@@ -151,7 +151,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Tuân thủ quy định phân loại rác của sự kiện.
 - Có ý thức bảo vệ môi trường.',
-                'category' => 'Community',
+                'category_id' => 'Community',
                 'location' => 'Nhà Văn hóa Thanh Niên, TP. Hồ Chí Minh',
                 'date_time' => '2026-06-27 08:00:00',
                 'capacity' => 350,
@@ -180,7 +180,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Tuân thủ quy tắc an toàn nhà bếp.
 - Tham gia đầy đủ các phần thực hành nấu ăn.',
-                'category' => 'Food',
+                'category_id' => 'Food',
                 'location' => 'Saigon Culinary Studio',
                 'date_time' => '2026-07-03 18:30:00',
                 'capacity' => 35,
@@ -208,7 +208,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Tuân thủ hướng dẫn của nhân viên triển lãm.
 - Giữ gìn không gian nghệ thuật chung.',
-                'category' => 'Art',
+                'category_id' => 'Art',
                 'location' => 'Bảo tàng Mỹ thuật TP. Hồ Chí Minh',
                 'date_time' => '2026-07-05 09:30:00',
                 'capacity' => 180,
@@ -236,7 +236,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Có tinh thần kết nối và học hỏi.
 - Tôn trọng ý tưởng và quan điểm của người khác.',
-                'category' => 'Meetup',
+                'category_id' => 'Meetup',
                 'location' => 'Dreamplex Nguyễn Trung Ngạn',
                 'date_time' => '2026-07-09 17:30:00',
                 'capacity' => 90,
@@ -264,7 +264,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Tham gia theo đúng đội đã đăng ký.
 - Tuân thủ quy định và thời gian cuộc thi.',
-                'category' => 'Competition',
+                'category_id' => 'Competition',
                 'location' => 'FPT Software Campus, Đà Nẵng',
                 'date_time' => '2026-07-12 08:00:00',
                 'capacity' => 160,
@@ -292,7 +292,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Sử dụng tên thật khi tham gia phòng họp.
 - Giữ thái độ lịch sự trong phần hỏi đáp.',
-                'category' => 'Webinar',
+                'category_id' => 'Webinar',
                 'location' => 'Online',
                 'date_time' => '2026-07-15 20:00:00',
                 'capacity' => 1000,
@@ -320,7 +320,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Tôn trọng diễn giả và người tham dự.
 - Khuyến khích tham gia các hoạt động giao lưu.',
-                'category' => 'Education',
+                'category_id' => 'Education',
                 'location' => 'Đường sách Nguyễn Văn Bình',
                 'date_time' => '2026-07-19 08:30:00',
                 'capacity' => 300,
@@ -348,7 +348,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Xếp hàng văn minh khi mua hàng.
 - Tuân thủ quy định an toàn thực phẩm của sự kiện.',
-                'category' => 'Festival',
+                'category_id' => 'Festival',
                 'location' => 'Công viên 23/9, TP. Hồ Chí Minh',
                 'date_time' => '2026-07-24 16:00:00',
                 'capacity' => 800,
@@ -376,7 +376,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Có mặt trước giờ tập 15 phút.
 - Tuân theo hướng dẫn của huấn luyện viên.',
-                'category' => 'Sports',
+                'category_id' => 'Sports',
                 'location' => 'Công viên Lê Văn Tám',
                 'date_time' => '2026-07-26 06:30:00',
                 'capacity' => 80,
@@ -404,7 +404,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Có kiến thức cơ bản về CNTT là lợi thế.
 - Tham gia đầy đủ phần trao đổi cuối buổi.',
-                'category' => 'Technology',
+                'category_id' => 'Technology',
                 'location' => 'VNG Campus',
                 'date_time' => '2026-07-30 13:30:00',
                 'capacity' => 150,
@@ -432,7 +432,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Chủ động phát biểu và tương tác.
 - Hoàn thành các bài tập trình bày được giao.',
-                'category' => 'Workshop',
+                'category_id' => 'Workshop',
                 'location' => 'PNV Training Center, Đà Nẵng',
                 'date_time' => '2026-08-02 09:00:00',
                 'capacity' => 45,
@@ -460,7 +460,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Có tinh thần hỗ trợ cộng đồng.
 - Tôn trọng các hoạt động và diễn giả chia sẻ.',
-                'category' => 'Community',
+                'category_id' => 'Community',
                 'location' => 'Cung Văn hóa Lao động TP. Hồ Chí Minh',
                 'date_time' => '2026-08-06 18:00:00',
                 'capacity' => 220,
@@ -488,7 +488,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Có mặt đúng giờ trước khi phim bắt đầu.
 - Giữ vệ sinh khu vực picnic sau khi kết thúc.',
-                'category' => 'Entertainment',
+                'category_id' => 'Entertainment',
                 'location' => 'Sala Park, TP. Hồ Chí Minh',
                 'date_time' => '2026-08-09 19:00:00',
                 'capacity' => 250,
@@ -517,7 +517,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Tham gia đầy đủ các phần coding thực hành.
 - Chủ động trao đổi khi gặp lỗi kỹ thuật.',
-                'category' => 'Technology',
+                'category_id' => 'Technology',
                 'location' => 'CodeGym Hà Nội',
                 'date_time' => '2026-08-15 08:30:00',
                 'capacity' => 70,
@@ -545,7 +545,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Chủ động đặt câu hỏi cho diễn giả.
 - Tôn trọng nội quy hội trường.',
-                'category' => 'Education',
+                'category_id' => 'Education',
                 'location' => 'Trung tâm Hội nghị White Palace',
                 'date_time' => '2026-08-22 08:00:00',
                 'capacity' => 400,
@@ -573,7 +573,7 @@ Lưu ý khi tham gia:
 Yêu cầu:
 - Giữ thái độ chuyên nghiệp khi networking.
 - Tôn trọng khách mời và các tiết mục biểu diễn.',
-                'category' => 'Networking',
+                'category_id' => 'Networking',
                 'location' => 'Gem Center, TP. Hồ Chí Minh',
                 'date_time' => '2026-08-29 18:30:00',
                 'capacity' => 300,
