@@ -2,27 +2,29 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
-        // Seed users first
+        // 1. Tạo danh mục trước
+        $this->call(CategorySeeder::class);
+
+        // 2. Tạo người dùng (Admin/User)
         $this->call(UserSeeder::class);
-        
-        // Then seed events
+
+        // 3. Tạo sự kiện (Lúc này đã có ID Category và ID User để làm khóa ngoại)
         $this->call(EventSeeder::class);
-        
-        // Seed registrations, reviews, and notifications
-        $this->call(RegistrationSeeder::class);
-        $this->call(ReviewSeeder::class);
-        $this->call(NotificationSeeder::class);
+
+        // 4. Các dữ liệu phụ thuộc khác
+        $this->call([
+            RegistrationSeeder::class,
+            ReviewSeeder::class,
+            NotificationSeeder::class,
+        ]);
     }
 }
