@@ -18,10 +18,14 @@ class Event extends Model
         'location',
         'date_time',
         'capacity',
+        'attendees',
+        'rating',
+        'price',
         'event_type',
         'status',
         'require_additional_info',
         'custom_form_spec',
+        'image_url',
     ];
 
     protected $casts = [
