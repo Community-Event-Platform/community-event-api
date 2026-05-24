@@ -201,4 +201,117 @@ class EventController extends Controller
             'data' => $review
         ], 201);
     }
+
+    public function featured()
+    {
+        $events = Event::with('category')
+            ->where('status', 'published')
+            ->orderBy('date_time')
+            ->limit(6)
+            ->get();
+
+        return response()->json(['data' => $events], 200);
+    }
+
+    public function search(Request $request)
+    {
+        $query = $request->query('q', '');
+
+        $events = Event::with('category')
+            ->where('status', 'published')
+            ->when($query, function ($builder, $query) {
+                $builder->where(function ($queryBuilder) use ($query) {
+                    $queryBuilder->where('name', 'like', "%{$query}%")
+                        ->orWhere('description', 'like', "%{$query}%")
+                        ->orWhere('location', 'like', "%{$query}%")
+                        ->orWhereHas('category', function ($categoryQuery) use ($query) {
+                            $categoryQuery->where('name', 'like', "%{$query}%");
+                        });
+                });
+            })
+            ->orderBy('date_time')
+            ->get();
+
+        return response()->json(['data' => $events], 200);
+    }
+
+    public function organizerEvents(Request $request)
+    {
+        $user = $request->user();
+
+        if ($user->role !== 'organizer') {
+            return response()->json(['message' => 'Forbidden: Only organizers can view their events'], 403);
+        }
+
+        $events = Event::with('category')
+            ->where('organizer_id', $user->id)
+            ->orderBy('date_time')
+            ->get();
+
+        return response()->json(['data' => $events], 200);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $user = $request->user();
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        if ($event->organizer_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden: Only the organizer can update this event'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => 'sometimes|required|string|max:255',
+            'description' => 'nullable|string',
+            'category_id' => 'sometimes|required|exists:categories,id',
+            'location' => 'sometimes|required|string|max:255',
+            'date_time' => 'sometimes|required|date',
+            'capacity' => 'sometimes|required|integer|min:1',
+            'status' => 'sometimes|required|in:published,draft,cancelled',
+            'event_type' => 'nullable|string|max:50',
+            'require_additional_info' => 'nullable|boolean',
+            'custom_form_spec' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 422);
+        }
+
+        $event->update([
+            'name' => $request->name ?? $event->name,
+            'description' => $request->description ?? $event->description,
+            'category_id' => $request->category_id ?? $event->category_id,
+            'location' => $request->location ?? $event->location,
+            'date_time' => $request->date_time ?? $event->date_time,
+            'capacity' => $request->capacity ?? $event->capacity,
+            'status' => $request->status ?? $event->status,
+            'event_type' => $request->event_type ?? $event->event_type,
+            'require_additional_info' => $request->has('require_additional_info') ? $request->boolean('require_additional_info') : $event->require_additional_info,
+            'custom_form_spec' => $request->custom_form_spec ?? $event->custom_form_spec,
+        ]);
+
+        return response()->json(['data' => $event], 200);
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $user = $request->user();
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        if ($event->organizer_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden: Only the organizer can delete this event'], 403);
+        }
+
+        $event->delete();
+
+        return response()->json(['message' => 'Event deleted successfully'], 200);
+    }
 }
