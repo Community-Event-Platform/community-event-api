@@ -107,6 +107,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Class Aliases
+    |--------------------------------------------------------------------------
+    |
+    | This array of class aliases will be registered when this application
+    | is started. Feel free to add your own aliases to this array to
+    | make commonly used classes easier to access from your code.
+    |
+    */
+    'aliases' => [
+        'Socialite' => Laravel\Socialite\Facades\Socialite::class,
+    ],
+    /*
+    |--------------------------------------------------------------------------
     | Maintenance Mode Driver
     |--------------------------------------------------------------------------
     |
