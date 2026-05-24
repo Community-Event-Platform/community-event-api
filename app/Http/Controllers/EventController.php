@@ -36,6 +36,7 @@ class EventController extends Controller
             'date_time' => 'required|date',
             'capacity' => 'required|integer|min:1',
             'status' => 'required|in:published,draft,cancelled',
+            'image' => 'nullable|image|max:5120',
             'event_type' => 'nullable|string|max:50',
             'require_additional_info' => 'nullable|boolean',
             'custom_form_spec' => 'nullable|string',
@@ -43,6 +44,12 @@ class EventController extends Controller
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
+        }
+
+        $imageUrl = null;
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('events', 'public');
+            $imageUrl = '/storage/' . $path;
         }
 
         $event = Event::create([
@@ -57,7 +64,15 @@ class EventController extends Controller
             'require_additional_info' => $request->boolean('require_additional_info'),
             'custom_form_spec' => $request->custom_form_spec,
             'organizer_id' => $user->id,
+            'image_url' => $imageUrl,
         ]);
+
+        // provide a friendly `image` attribute for frontend compatibility
+        if ($imageUrl) {
+            $event->setAttribute('image', $imageUrl);
+        } else {
+            $event->setAttribute('image', $event->image_url);
+        }
 
         return response()->json(['data' => $event], 201);
     }
@@ -101,6 +116,9 @@ class EventController extends Controller
                     ]
                 ];
             });
+
+        // ensure `image` attribute is present for frontend
+        $event->setAttribute('image', $event->image_url ?? null);
 
         $eventData = array_merge($event->toArray(), [
             'registrations_count' => $registrationsCount,
@@ -210,6 +228,11 @@ class EventController extends Controller
             ->limit(6)
             ->get();
 
+        // add `image` attribute for frontend compatibility
+        $events->each(function ($ev) {
+            $ev->setAttribute('image', $ev->image_url ?? null);
+        });
+
         return response()->json(['data' => $events], 200);
     }
 
@@ -248,6 +271,11 @@ class EventController extends Controller
             ->orderBy('date_time')
             ->get();
 
+        // add `image` attribute for frontend compatibility
+        $events->each(function ($ev) {
+            $ev->setAttribute('image', $ev->image_url ?? null);
+        });
+
         return response()->json(['data' => $events], 200);
     }
 
@@ -272,6 +300,7 @@ class EventController extends Controller
             'date_time' => 'sometimes|required|date',
             'capacity' => 'sometimes|required|integer|min:1',
             'status' => 'sometimes|required|in:published,draft,cancelled',
+            'image' => 'nullable|image|max:5120',
             'event_type' => 'nullable|string|max:50',
             'require_additional_info' => 'nullable|boolean',
             'custom_form_spec' => 'nullable|string',
@@ -279,6 +308,13 @@ class EventController extends Controller
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 422);
+        }
+
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('events', 'public');
+            $imageUrl = '/storage/' . $path;
+        } else {
+            $imageUrl = $event->image_url;
         }
 
         $event->update([
@@ -292,7 +328,11 @@ class EventController extends Controller
             'event_type' => $request->event_type ?? $event->event_type,
             'require_additional_info' => $request->has('require_additional_info') ? $request->boolean('require_additional_info') : $event->require_additional_info,
             'custom_form_spec' => $request->custom_form_spec ?? $event->custom_form_spec,
+            'image_url' => $imageUrl,
         ]);
+
+        // ensure frontend can read `image` attribute
+        $event->setAttribute('image', $imageUrl);
 
         return response()->json(['data' => $event], 200);
     }
