@@ -56,8 +56,10 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Category not found.'], 404);
         }
 
-    
-        $eventCount = Event::where('category_id', $id)->count();
+        $organizerId = $request->user()->id;
+        $eventCount = Event::where('category_id', $id)
+            ->where('organizer_id', $organizerId)
+            ->count();
 
         if ($eventCount > 0) {
             return response()->json([
@@ -89,8 +91,10 @@ class CategoryController extends Controller
             return response()->json(['message' => 'Category not found.'], 404);
         }
 
-        // Đã sửa: Đếm số lượng event chính xác qua category_id
-        $eventCount = Event::where('category_id', $id)->count();
+        $organizerId = request()->user()->id;
+        $eventCount = Event::where('category_id', $id)
+            ->where('organizer_id', $organizerId)
+            ->count();
 
         if ($eventCount > 0) {
             return response()->json([
