@@ -84,14 +84,14 @@ class CategoryController extends Controller
     }
 
     // 4. DELETE /api/categories/{id} - Chặn xóa nếu có sự kiện thuộc danh mục
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         $category = Category::find($id);
         if (!$category) {
             return response()->json(['message' => 'Category not found.'], 404);
         }
 
-        $organizerId = request()->user()->id;
+        $organizerId = $request->user()->id;
         $eventCount = Event::where('category_id', $id)
             ->where('organizer_id', $organizerId)
             ->count();
