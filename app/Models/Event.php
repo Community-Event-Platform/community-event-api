@@ -21,6 +21,7 @@ class Event extends Model
         'attendees',
         'rating',
         'price',
+        'fees_and_taxes',
         'event_type',
         'status',
         'require_additional_info',

@@ -31,7 +31,7 @@ class EventController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'category_id' => 'required|exists:categories,id', // Kiểm tra ID có tồn tại trong bảng categories
+            'category_id' => 'required|exists:categories,id',
             'location' => 'required|string|max:255',
             'date_time' => 'required|date',
             'capacity' => 'required|integer|min:1',
@@ -40,6 +40,8 @@ class EventController extends Controller
             'event_type' => 'nullable|string|max:50',
             'require_additional_info' => 'nullable|boolean',
             'custom_form_spec' => 'nullable|string',
+            'price' => 'nullable|integer|min:0',
+            'fees_and_taxes' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -65,6 +67,8 @@ class EventController extends Controller
             'custom_form_spec' => $request->custom_form_spec,
             'organizer_id' => $user->id,
             'image_url' => $imageUrl,
+            'price' => $request->price ?? 0,
+            'fees_and_taxes' => $request->fees_and_taxes ?? 0,
         ]);
 
         // provide a friendly `image` attribute for frontend compatibility

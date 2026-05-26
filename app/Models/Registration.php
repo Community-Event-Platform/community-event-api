@@ -13,6 +13,11 @@ class Registration extends Model
         'event_id',
         'attendee_id',
         'status',
+        'additional_info',
+    ];
+
+    protected $casts = [
+        'additional_info' => 'array',
     ];
 
     public function event()
