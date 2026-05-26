@@ -293,4 +293,21 @@ class RegistrationController extends Controller
 
         return response()->json(['data' => $registrations], 200);
     }
+
+    /**
+     * CEP-96 / CEP-98: Lấy danh sách thông báo của User hiện tại để hiển thị trên Dashboard
+     */
+    public function getNotifications(Request $request)
+    {
+        $user = $request->user();
+        
+        $notifications = \App\Models\Notification::where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $notifications
+        ], 200);
+    }
 }

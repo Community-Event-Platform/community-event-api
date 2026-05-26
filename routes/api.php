@@ -73,4 +73,5 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events/{id}/reviews', [\App\Http\Controllers\EventController::class, 'storeReview']);
     // Dashboard stats
     Route::get('/dashboard-stats', [DashboardController::class, 'index']);
+    Route::get('/notifications', [RegistrationController::class, 'getNotifications']);
 });
