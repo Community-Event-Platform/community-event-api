@@ -143,24 +143,37 @@ class RegistrationController extends Controller
      */
     private function promoteFromWaitlist(int $eventId): void
     {
-        // Get first in line (position = 1)
+        // 1. Tìm người đứng đầu hàng đợi (waitlist_position = 1)
         $firstInLine = Registration::where('event_id', $eventId)
             ->where('status', 'Waitlisted')
             ->where('waitlist_position', 1)
-            ->lockForUpdate()
+            ->lockForUpdate() // Khóa dòng dữ liệu để tránh xung đột dữ liệu (Race Condition)
             ->first();
 
+        // Nếu không có ai trong danh sách chờ thì dừng lại
         if (!$firstInLine) {
             return;
         }
 
-        // CEP-86: Promote to confirmed
+        // 2. Đôn người này lên làm thành viên chính thức
         $firstInLine->update([
             'status'            => 'Approved',
-            'waitlist_position' => null,
+            'waitlist_position' => null, // Được tham gia rồi thì không còn số chờ nữa
         ]);
 
-        // Shift all remaining waitlist positions down by 1 (maintain FIFO order)
+        // 3. Lấy tên sự kiện để nội dung thông báo rõ ràng hơn
+        $event = Event::find($eventId);
+        $eventName = $event ? $event->name : 'Sự kiện';
+
+        // 4. BẮN THÔNG BÁO (Lưu vào bảng notifications 
+        \App\Models\Notification::create([
+            'user_id'  => $firstInLine->attendee_id, // ID của người được đôn lên
+            'event_id' => $eventId,
+            'message'  => "Congratulations! You have been promoted to a permanent position for the event \"{$eventName}\".", // Nội dung thông báo
+            'is_read'  => false,
+        ]);
+
+        // 5. Cập nhật lại số thứ tự cho toàn bộ những người còn lại trong danh sách chờ (Trừ đi 1)
         Registration::where('event_id', $eventId)
             ->where('status', 'Waitlisted')
             ->whereNotNull('waitlist_position')
