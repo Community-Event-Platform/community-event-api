@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\RegistrationController;
 use App\Models\Event;
 use App\Models\Category; 
 use Illuminate\Http\Request;
@@ -56,6 +57,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/categories/{id}', [\App\Http\Controllers\CategoryController::class, 'destroy']);
     // Register event
     Route::post('/events/{id}/register', [\App\Http\Controllers\EventController::class, 'register']);
+    // Register for Free Event (with requirement form)
+    Route::post('/events/{id}/register/free', [RegistrationController::class, 'registerFreeEvent']);
+    // Register for Paid Event
+    Route::post('/events/{id}/register/paid', [RegistrationController::class, 'registerPaidEvent']);
+    // Get user's registrations
+    Route::get('/registrations', [RegistrationController::class, 'getMyRegistrations']);
+    // Cancel registration
+    Route::post('/registrations/{id}/cancel', [RegistrationController::class, 'cancelRegistration']);
+    // Check registration status for an event
+    Route::get('/events/{id}/registration-status', [RegistrationController::class, 'checkRegistration']);
     // Create review
     Route::post('/events/{id}/reviews', [\App\Http\Controllers\EventController::class, 'storeReview']);
     // Dashboard stats
