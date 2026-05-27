@@ -8,6 +8,7 @@ use App\Models\Registration;
 use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class EventController extends Controller
 {
@@ -192,6 +193,12 @@ public function index(Request $request)
 
         if (!$event) {
             return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Check if event has ended
+        $eventEndTime = $event->end_date ?? $event->date_time;
+        if (now()->isBefore($eventEndTime)) {
+            return response()->json(['message' => 'Sự kiện chưa kết thúc. Bạn chỉ có thể đánh giá sau khi sự kiện kết thúc.'], 400);
         }
 
         $isRegistered = Registration::where('event_id', $event->id)
