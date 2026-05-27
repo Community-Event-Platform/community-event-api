@@ -10,6 +10,7 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GoogleController;
+use App\Http\Controllers\PaymentController;
 
 // ===== Public routes =====
 Route::post('/register', [AuthController::class, 'register']);
@@ -18,17 +19,14 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::get('/test-events', function () {
     return Event::all();
 });
-Route::get('/events', [\App\Http\Controllers\EventController::class, 'index']);
-Route::get('/events/search', [\App\Http\Controllers\EventController::class, 'search']);
-Route::get('/events/featured', [\App\Http\Controllers\EventController::class, 'featured']);
-Route::get('/events/{id}', [\App\Http\Controllers\EventController::class, 'show']);
+Route::get('/events', [EventController::class, 'index']);
+Route::get('/events/search', [EventController::class, 'search']);
+Route::get('/events/featured', [EventController::class, 'featured']);
+Route::get('/events/{id}', [EventController::class, 'show']);
 
-// Public categories list for frontend dropdown - ĐÃ SỬ DỤNG NÀY ĐI, HẾT LỖI
+// Public categories
 Route::get('/categories', function () {
-    // Thay vì select từ bảng Event (cột category đã xóa), ta lấy trực tiếp từ bảng Category
-    return Category::select('id', 'name')
-        ->orderBy('name')
-        ->get();
+    return Category::select('id', 'name')->orderBy('name')->get();
 });
 
 // Google OAuth routes
@@ -38,49 +36,43 @@ Route::get('/auth/google/callback', [GoogleController::class, 'callback']);
 // Protected routes
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', function (Request $request) { return $request->user(); });
 
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
+    // Event management
+    Route::post('/events', [EventController::class, 'store']);
+    Route::put('/events/{id}', [EventController::class, 'update']);
+    Route::delete('/events/{id}', [EventController::class, 'destroy']);
+    Route::get('/organizer/events', [EventController::class, 'organizerEvents']);
 
-    // Create event (Organizer only)
-    Route::post('/events', [\App\Http\Controllers\EventController::class, 'store']);
-    // Update event (Organizer only)
-    Route::put('/events/{id}', [\App\Http\Controllers\EventController::class, 'update']);
-    // Delete event (Organizer only)
-    Route::delete('/events/{id}', [\App\Http\Controllers\EventController::class, 'destroy']);
-    // Get organizer's events
-    Route::get('/organizer/events', [\App\Http\Controllers\EventController::class, 'organizerEvents']);
-
-    // Category management (organizer only)
-    Route::post('/categories', [\App\Http\Controllers\CategoryController::class, 'store']);
-    Route::put('/categories/{id}', [\App\Http\Controllers\CategoryController::class, 'update']);
-    Route::delete('/categories/{id}', [\App\Http\Controllers\CategoryController::class, 'destroy']);
-    // Register event (handled by RegistrationController - supports waitlist)
-    Route::post('/events/{id}/register', [RegistrationController::class, 'register']);
-    // Get user's registrations
-    Route::get('/registrations', [RegistrationController::class, 'getMyRegistrations']);
-    // Get user's profile with registrations
-    Route::get('/user/profile', [RegistrationController::class, 'getProfileWithRegistrations']);
-    // Cancel registration (user)
-    Route::patch('/registrations/{id}/cancel', [RegistrationController::class, 'cancelRegistration']);
-    // Check registration status for an event
-    Route::get('/events/{id}/registration-status', [RegistrationController::class, 'checkRegistration']);
+    // Category management
     Route::post('/categories', [CategoryController::class, 'store']);
     Route::put('/categories/{id}', [CategoryController::class, 'update']);
     Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
 
-    // (CEP-83/85) additional registration routes are handled above
+    // Registration
+    Route::post('/events/{id}/register', [RegistrationController::class, 'register']);
+    Route::post('/events/{id}/register/paid', [PaymentController::class, 'initPayment']);
+    Route::get('/registrations', [RegistrationController::class, 'getMyRegistrations']);
+    Route::get('/user/profile', [RegistrationController::class, 'getProfileWithRegistrations']);
+    Route::patch('/registrations/{id}/cancel', [RegistrationController::class, 'cancelRegistration']);
+    Route::get('/events/{id}/registration-status', [RegistrationController::class, 'checkRegistration']);
 
-    // CEP-84: Get participants for a specific event (organizer only)
+    // Participants
     Route::get('/events/{id}/participants', [RegistrationController::class, 'eventParticipants']);
-
-    // CEP-84: Get all participants across organizer's events (supports ?event_id=&status= filters)
     Route::get('/organizer/participants', [RegistrationController::class, 'allParticipants']);
 
-    // Create review
-    Route::post('/events/{id}/reviews', [\App\Http\Controllers\EventController::class, 'storeReview']);
-    // Dashboard stats
+    // Reviews
+    Route::post('/events/{id}/reviews', [EventController::class, 'storeReview']);
+
+    // Dashboard & Notifications
     Route::get('/dashboard-stats', [DashboardController::class, 'index']);
     Route::get('/notifications', [RegistrationController::class, 'getNotifications']);
+
+    // Payment routes
+    Route::get('/payments/{id}', [PaymentController::class, 'getPaymentStatus']);
+    Route::get('/events/{id}/payment-status', [PaymentController::class, 'checkPaymentStatus']);
 });
+
+// VNPay Return/IPN (public, outside auth)
+Route::get('/payment/vnpay/return', [PaymentController::class, 'vnpayReturn']);
+Route::post('/payment/vnpay/ipn', [PaymentController::class, 'vnpayIpn']);
