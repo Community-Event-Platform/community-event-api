@@ -5,162 +5,243 @@ namespace App\Http\Controllers;
 use App\Models\Event;
 use App\Models\Registration;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
 class RegistrationController extends Controller
 {
     /**
-     * Register for a Free Event (with optional requirement form)
+     * Register for an event (handles capacity and waitlist).
+     * Uses a DB transaction and pessimistic locks to avoid races.
      */
-    public function registerFreeEvent(Request $request, $eventId)
+    public function register(Request $request, $eventId)
     {
         $user = $request->user();
-        $event = Event::find($eventId);
 
-        if (!$event) {
-            return response()->json(['message' => 'Event not found'], 404);
-        }
+        return DB::transaction(function () use ($request, $user, $eventId) {
+            $event = Event::lockForUpdate()->find($eventId);
+            if (!$event) {
+                return response()->json(['message' => 'Event not found'], 404);
+            }
 
-        // AC3: Check for duplicate registration (Pending or Confirmed status)
-        $existingRegistration = Registration::where('event_id', $event->id)
-            ->where('attendee_id', $user->id)
-            ->whereIn('status', ['Pending', 'Confirmed'])
-            ->first();
+            // Prevent duplicate registrations (except Cancelled)
+            $existing = Registration::where('event_id', $event->id)
+                ->where('attendee_id', $user->id)
+                ->whereNotIn('status', ['Cancelled'])
+                ->first();
 
-        if ($existingRegistration) {
-            return response()->json([
-                'message' => 'Bạn đã đăng ký sự kiện này',
-                'code' => 'DUPLICATE_REGISTRATION'
-            ], 409);
-        }
+            if ($existing) {
+                return response()->json(['message' => 'Bạn đã đăng ký tham gia sự kiện này rồi!'], 400);
+            }
 
-        // Check capacity - calculate remaining seats from registrations count
-        $registrationsCount = Registration::where('event_id', $event->id)->count();
-        $remainingSeats = max(0, $event->capacity - $registrationsCount);
+            // Optional additional info validation if event requires it
+            $additionalInfo = $request->input('additional_info');
+            if ($event->require_additional_info && $event->custom_form_spec) {
+                $formSpec = is_string($event->custom_form_spec)
+                    ? json_decode($event->custom_form_spec, true)
+                    : $event->custom_form_spec;
 
-        if ($remainingSeats <= 0) {
-            return response()->json(['message' => 'Sự kiện đã hết ghế trống!'], 400);
-        }
-
-        // AC2: Validate required fields if event has requirement form
-        $additionalInfo = null;
-        if ($event->require_additional_info && $event->custom_form_spec) {
-            $formSpec = is_string($event->custom_form_spec) 
-                ? json_decode($event->custom_form_spec, true) 
-                : $event->custom_form_spec;
-            
-            $questions = $formSpec['questions'] ?? [];
-            $errors = [];
-            
-            foreach ($questions as $index => $question) {
-                // Handle both string questions and object questions
-                $questionText = is_string($question) ? $question : ($question['question'] ?? '');
-                $isRequired = is_array($question) ? ($question['is_required'] ?? false) : false;
-                
-                if ($isRequired) {
+                $questions = $formSpec['questions'] ?? [];
+                $errors = [];
+                foreach ($questions as $index => $question) {
+                    $isRequired = is_array($question) ? ($question['is_required'] ?? false) : false;
                     $fieldName = "additional_info_{$index}";
-                    if (empty($request->input($fieldName))) {
-                        $errors[$fieldName] = "Vui lòng trả lời: " . $questionText;
+                    if ($isRequired && empty($request->input($fieldName))) {
+                        $errors[$fieldName] = 'Vui lòng trả lời câu hỏi bắt buộc.';
                     }
                 }
-            }
-            
-            if (!empty($errors)) {
-                return response()->json([
-                    'message' => 'Vui lòng điền đầy đủ thông tin bắt buộc',
-                    'errors' => $errors
-                ], 422);
-            }
-            
-            // Collect additional info
-            $additionalInfo = [];
-            foreach ($questions as $index => $question) {
-                $questionText = is_string($question) ? $question : ($question['question'] ?? '');
-                $fieldName = "additional_info_{$index}";
-                $additionalInfo[$questionText] = $request->input($fieldName);
-            }
-        }
+                if (!empty($errors)) {
+                    return response()->json(['message' => 'Vui lòng điền đầy đủ thông tin bắt buộc', 'errors' => $errors], 422);
+                }
 
-        // AC1: Create registration with status 'Pending'
-        $registration = Registration::create([
-            'event_id' => $event->id,
-            'attendee_id' => $user->id,
-            'status' => 'Pending',
-            'additional_info' => $additionalInfo,
-        ]);
+                // collect answers into associative array if present
+                $additionalInfo = [];
+                foreach ($questions as $index => $question) {
+                    $questionText = is_string($question) ? $question : ($question['question'] ?? "question_{$index}");
+                    $fieldName = "additional_info_{$index}";
+                    $additionalInfo[$questionText] = $request->input($fieldName);
+                }
+            }
 
-        return response()->json([
-            'message' => 'Gửi yêu cầu đăng ký thành công, vui lòng chờ duyệt!',
-            'data' => $registration
-        ], 201);
+            // Count confirmed seats
+            $confirmedCount = Registration::where('event_id', $event->id)
+                ->whereNull('waitlist_position')
+                ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->count();
+
+            if ($confirmedCount < $event->capacity) {
+                $registration = Registration::create([
+                    'event_id' => $event->id,
+                    'attendee_id' => $user->id,
+                    'status' => 'Approved',
+                    'waitlist_position' => null,
+                    'additional_info' => $additionalInfo,
+                ]);
+
+                return response()->json(['message' => 'Đăng ký tham gia thành công!', 'data' => $registration], 201);
+            }
+
+            // Event full -> join waitlist
+            $nextPosition = Registration::where('event_id', $event->id)
+                ->whereNotNull('waitlist_position')
+                ->max('waitlist_position');
+            $nextPosition = ($nextPosition ?? 0) + 1;
+
+            $registration = Registration::create([
+                'event_id' => $event->id,
+                'attendee_id' => $user->id,
+                'status' => 'Waitlisted',
+                'waitlist_position' => $nextPosition,
+                'additional_info' => $additionalInfo,
+            ]);
+
+            return response()->json([
+                'message' => 'Sự kiện đã hết ghế. Bạn đã được thêm vào danh sách chờ!',
+                'waitlist_position' => $nextPosition,
+                'data' => $registration,
+            ], 201);
+        });
     }
 
     /**
-     * Register for a Paid Event
+     * Cancel a registration (user action). Promotes first waitlist if a confirmed seat freed.
      */
-    public function registerPaidEvent(Request $request, $eventId)
+    public function cancelRegistration(Request $request, $registrationId)
+    {
+        $user = $request->user();
+
+        return DB::transaction(function () use ($user, $registrationId) {
+            $registration = Registration::lockForUpdate()
+                ->where('id', $registrationId)
+                ->where('attendee_id', $user->id)
+                ->first();
+
+            if (!$registration) {
+                return response()->json(['message' => 'Registration not found'], 404);
+            }
+
+            if ($registration->status === 'Cancelled') {
+                return response()->json(['message' => 'Registration already cancelled'], 400);
+            }
+
+            $wasConfirmed = $registration->waitlist_position === null && $registration->status !== 'Waitlisted';
+
+            $registration->update(['status' => 'Cancelled', 'waitlist_position' => null]);
+
+            if ($wasConfirmed) {
+                $this->promoteFromWaitlist($registration->event_id);
+            }
+
+            return response()->json(['message' => 'Hủy đăng ký thành công', 'data' => $registration], 200);
+        });
+    }
+
+    /**
+     * Promote first waitlisted attendee to confirmed and shift positions.
+     */
+    private function promoteFromWaitlist(int $eventId): void
+    {
+        $first = Registration::where('event_id', $eventId)
+            ->where('status', 'Waitlisted')
+            ->whereNotNull('waitlist_position')
+            ->orderBy('waitlist_position', 'asc')
+            ->lockForUpdate()
+            ->first();
+
+        if (!$first) {
+            return;
+        }
+
+        $first->update(['status' => 'Approved', 'waitlist_position' => null]);
+
+        $event = Event::find($eventId);
+        $eventName = $event ? $event->name : 'Sự kiện';
+
+        // Create notification if model exists
+        if (class_exists('\App\\Models\\Notification')) {
+            \App\Models\Notification::create([
+                'user_id' => $first->attendee_id,
+                'event_id' => $eventId,
+                'message' => "Bạn đã được đôn lên tham gia sự kiện \"{$eventName}\".",
+                'is_read' => false,
+            ]);
+        }
+
+        // Shift remaining waitlist positions down by 1
+        Registration::where('event_id', $eventId)
+            ->where('status', 'Waitlisted')
+            ->whereNotNull('waitlist_position')
+            ->decrement('waitlist_position');
+    }
+
+    /**
+     * Organizer: list participants for an event including waitlist positions.
+     */
+    public function eventParticipants(Request $request, $eventId)
     {
         $user = $request->user();
         $event = Event::find($eventId);
-
         if (!$event) {
             return response()->json(['message' => 'Event not found'], 404);
         }
-
-        // AC3: Check for duplicate registration (Pending or Confirmed status)
-        $existingRegistration = Registration::where('event_id', $event->id)
-            ->where('attendee_id', $user->id)
-            ->whereIn('status', ['Pending', 'Confirmed'])
-            ->first();
-
-        if ($existingRegistration) {
-            return response()->json([
-                'message' => 'Bạn đã đăng ký sự kiện này',
-                'code' => 'DUPLICATE_REGISTRATION'
-            ], 409);
+        if ($event->organizer_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden: Only the organizer can view participants'], 403);
         }
 
-        // Check capacity - calculate remaining seats from registrations count
-        $registrationsCount = Registration::where('event_id', $event->id)->count();
-        $remainingSeats = max(0, $event->capacity - $registrationsCount);
+        $registrations = Registration::with(['attendee', 'formResponses'])
+            ->where('event_id', $eventId)
+            ->orderByRaw("CASE WHEN status = 'Waitlisted' THEN 1 ELSE 0 END")
+            ->orderBy('waitlist_position', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get()
+            ->map(function ($reg) {
+                return [
+                    'id' => $reg->id,
+                    'status' => $reg->status,
+                    'waitlist_position' => $reg->waitlist_position,
+                    'registered_at' => $reg->created_at?->format('d/m/Y H:i'),
+                    'attendee' => $reg->attendee ? [
+                        'id' => $reg->attendee->id,
+                        'name' => $reg->attendee->name,
+                        'email' => $reg->attendee->email,
+                        'avatar' => $reg->attendee->avatar ?? null,
+                    ] : null,
+                    'form_responses' => $reg->formResponses->map(fn($fr) => [
+                        'field_name' => $fr->field_name,
+                        'field_type' => $fr->field_type,
+                        'response_value' => $fr->response_value,
+                    ]),
+                ];
+            });
 
-        if ($remainingSeats <= 0) {
-            return response()->json(['message' => 'Sự kiện đã hết ghế trống!'], 400);
+        return response()->json(['data' => $registrations, 'event' => ['id' => $event->id, 'name' => $event->name, 'capacity' => $event->capacity]], 200);
+    }
+
+    /**
+     * Organizer: list all participants across organizer's events (filterable).
+     */
+    public function allParticipants(Request $request)
+    {
+        $user = $request->user();
+        if ($user->role !== 'organizer') {
+            return response()->json(['message' => 'Forbidden: Only organizers can view participants'], 403);
         }
 
-        // Validate quantity - use numeric check for remaining seats
-        $maxQuantity = is_numeric($remainingSeats) ? $remainingSeats : 1;
-        $validator = Validator::make($request->all(), [
-            'quantity' => 'required|integer|min:1|max:' . $maxQuantity,
-        ]);
+        $organizerEventIds = Event::where('organizer_id', $user->id)->pluck('id');
 
-        if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+        $query = Registration::with(['attendee', 'event', 'formResponses'])
+            ->whereIn('event_id', $organizerEventIds);
+
+        if ($request->has('event_id') && $request->event_id !== 'all') {
+            $query->where('event_id', $request->event_id);
+        }
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
         }
 
-        $quantity = $request->input('quantity', 1);
+        $registrations = $query->orderBy('created_at', 'desc')->get();
 
-        // AC4: For paid events, status is set based on payment result
-        // For now, we set to 'Pending' since payment integration is not implemented
-        // In production, this would be 'Confirmed' after successful payment
-        $registration = Registration::create([
-            'event_id' => $event->id,
-            'attendee_id' => $user->id,
-            'status' => 'Pending',
-            'additional_info' => [
-                'quantity' => $quantity,
-                'payment_method' => $request->input('payment_method', 'credit_card'),
-            ],
-        ]);
-
-        // AC4: No success message returned - FE should redirect to payment
-        $amount = is_numeric($event->price) ? $event->price * $quantity : 0;
-        return response()->json([
-            'message' => 'Proceeding to payment...',
-            'data' => $registration,
-            'requires_payment' => true,
-            'amount' => $amount
-        ], 201);
+        return response()->json(['data' => $registrations], 200);
     }
 
     /**
@@ -169,8 +250,7 @@ class RegistrationController extends Controller
     public function getMyRegistrations(Request $request)
     {
         $user = $request->user();
-        
-        $registrations = Registration::with('event.category')
+        $registrations = Registration::with(['event.category'])
             ->where('attendee_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get();
@@ -179,72 +259,47 @@ class RegistrationController extends Controller
     }
 
     /**
-     * Get user's profile with registrations grouped by status
-     */
-    public function getProfileWithRegistrations(Request $request)
-    {
-        $user = $request->user();
-        
-        $registrations = Registration::with('event.category')
-            ->where('attendee_id', $user->id)
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json([
-            'user' => $user,
-            'registrations' => $registrations
-        ], 200);
-    }
-
-    /**
-     * Cancel registration
-     */
-    public function cancelRegistration(Request $request, $registrationId)
-    {
-        $user = $request->user();
-        
-        $registration = Registration::where('id', $registrationId)
-            ->where('attendee_id', $user->id)
-            ->first();
-
-        if (!$registration) {
-            return response()->json(['message' => 'Registration not found'], 404);
-        }
-
-        if ($registration->status === 'Cancelled') {
-            return response()->json(['message' => 'Registration already cancelled'], 400);
-        }
-
-        $registration->update(['status' => 'Cancelled']);
-
-        return response()->json([
-            'message' => 'Hủy đăng ký thành công',
-            'data' => $registration
-        ], 200);
-    }
-
-    /**
      * Check if user has registered for an event
      */
     public function checkRegistration(Request $request, $eventId)
     {
         $user = $request->user();
-        
         $registration = Registration::where('event_id', $eventId)
             ->where('attendee_id', $user->id)
-            ->whereIn('status', ['Pending', 'Confirmed'])
+            ->whereIn('status', ['Pending', 'Approved', 'Waitlisted'])
             ->first();
 
         if ($registration) {
-            return response()->json([
-                'has_registered' => true,
-                'status' => $registration->status,
-                'registration_id' => $registration->id,
-            ], 200);
+            return response()->json(['has_registered' => true, 'status' => $registration->status, 'registration_id' => $registration->id], 200);
+        }
+        return response()->json(['has_registered' => false], 200);
+    }
+
+    /**
+     * Get notifications for current user (if Notification model exists).
+     */
+    public function getNotifications(Request $request)
+    {
+        $user = $request->user();
+        if (!class_exists('\App\\Models\\Notification')) {
+            return response()->json(['success' => true, 'data' => []], 200);
         }
 
-        return response()->json([
-            'has_registered' => false,
-        ], 200);
+        $notifications = \App\Models\Notification::where('user_id', $user->id)->orderBy('created_at', 'desc')->get();
+        return response()->json(['success' => true, 'data' => $notifications], 200);
+    }
+
+    /**
+     * Get user's profile with registrations grouped by status
+     */
+    public function getProfileWithRegistrations(Request $request)
+    {
+        $user = $request->user();
+        $registrations = Registration::with('event.category')
+            ->where('attendee_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json(['user' => $user, 'registrations' => $registrations], 200);
     }
 }
