@@ -170,12 +170,30 @@ class RegistrationController extends Controller
     {
         $user = $request->user();
         
-        $registrations = Registration::with('event')
+        $registrations = Registration::with('event.category')
             ->where('attendee_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get();
 
         return response()->json(['data' => $registrations], 200);
+    }
+
+    /**
+     * Get user's profile with registrations grouped by status
+     */
+    public function getProfileWithRegistrations(Request $request)
+    {
+        $user = $request->user();
+        
+        $registrations = Registration::with('event.category')
+            ->where('attendee_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'user' => $user,
+            'registrations' => $registrations
+        ], 200);
     }
 
     /**

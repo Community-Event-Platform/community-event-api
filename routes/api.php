@@ -63,6 +63,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/events/{id}/register/paid', [RegistrationController::class, 'registerPaidEvent']);
     // Get user's registrations
     Route::get('/registrations', [RegistrationController::class, 'getMyRegistrations']);
+    // Get user's profile with registrations
+    Route::get('/user/profile', [RegistrationController::class, 'getProfileWithRegistrations']);
     // Cancel registration
     Route::post('/registrations/{id}/cancel', [RegistrationController::class, 'cancelRegistration']);
     // Check registration status for an event
