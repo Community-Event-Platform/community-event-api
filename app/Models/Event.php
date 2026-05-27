@@ -17,6 +17,7 @@ class Event extends Model
         'category_id',
         'location',
         'date_time',
+        'end_date',
         'capacity',
         'attendees',
         'rating',
@@ -31,6 +32,7 @@ class Event extends Model
 
     protected $casts = [
         'date_time' => 'datetime',
+        'end_date' => 'datetime',
         'require_additional_info' => 'boolean',
         'custom_form_spec' => 'array',
     ];

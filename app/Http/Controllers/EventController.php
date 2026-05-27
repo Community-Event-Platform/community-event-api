@@ -8,18 +8,38 @@ use App\Models\Registration;
 use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class EventController extends Controller
 {
-    public function index()
-    {
-        $events = Event::with('category')
-            ->where('status', 'published')
-            ->orderBy('date_time')
-            ->get();
+public function index(Request $request)
+{
+    $search = $request->query('search');
+    $category = $request->query('category');
 
-        return response()->json(['data' => $events], 200);
-    }
+    $events = Event::with('category')
+        ->where('status', 'published')
+
+        // SEARCH: name OR description
+        ->when($search, function ($query, $search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%$search%")
+                  ->orWhere('description', 'like', "%$search%");
+            });
+        })
+
+        // FILTER CATEGORY
+        ->when($category, function ($query, $category) {
+            $query->where('category_id', $category);
+        })
+
+        ->orderBy('date_time')
+        ->get();
+
+    return response()->json([
+        'data' => $events
+    ], 200);
+}
 
     public function store(Request $request)
     {
@@ -177,6 +197,12 @@ class EventController extends Controller
 
         if (!$event) {
             return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        // Check if event has ended
+        $eventEndTime = $event->end_date ?? $event->date_time;
+        if (now()->isBefore($eventEndTime)) {
+            return response()->json(['message' => 'Sự kiện chưa kết thúc. Bạn chỉ có thể đánh giá sau khi sự kiện kết thúc.'], 400);
         }
 
         $isRegistered = Registration::where('event_id', $event->id)
