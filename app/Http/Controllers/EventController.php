@@ -11,14 +11,33 @@ use Illuminate\Support\Facades\Validator;
 
 class EventController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $search = $request->query('search');
+        $category = $request->query('category');
+
         $events = Event::with('category')
             ->where('status', 'published')
+
+            // SEARCH: name OR description
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%$search%")
+                    ->orWhere('description', 'like', "%$search%");
+                });
+            })
+
+            // FILTER CATEGORY
+            ->when($category, function ($query, $category) {
+                $query->where('category_id', $category);
+            })
+
             ->orderBy('date_time')
             ->get();
 
-        return response()->json(['data' => $events], 200);
+        return response()->json([
+            'data' => $events
+        ], 200);
     }
 
     public function store(Request $request)
