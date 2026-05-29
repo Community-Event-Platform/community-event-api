@@ -28,6 +28,31 @@ class EventSeeder extends Seeder
         // Lấy danh sách ID từ bảng categories để ánh xạ
         $catMap = DB::table('categories')->pluck('id', 'name');
 
+        $seedEventNames = [
+            'Đêm nhạc Acoustic ven sông',
+            'Workshop Thiết kế UI cho người mới',
+            'Ngày hội chạy bộ cộng đồng',
+            'Talkshow AI trong giáo dục',
+            'Phiên chợ xanh cuối tuần',
+            'Lớp học nấu món Việt hiện đại',
+            'Triển lãm ảnh Thành phố trong tôi',
+            'Khởi nghiệp xã hội: từ ý tưởng đến sản phẩm',
+            'Cuộc thi lập trình Hack for Community',
+            'Webinar Quản lý tài chính cá nhân',
+            'Ngày hội sách và văn hóa đọc',
+            'Festival Ẩm thực đường phố',
+            'Lớp Yoga sáng chủ nhật',
+            'Seminar Cloud Computing căn bản',
+            'Workshop Kỹ năng thuyết trình',
+            'Giao lưu tình nguyện viên mùa hè',
+            'Đêm phim ngoài trời',
+            'Bootcamp React trong 1 ngày',
+            'Ngày hội định hướng nghề nghiệp',
+            'Gala kết nối cộng đồng EventHub',
+        ];
+
+        DB::table('events')->whereIn('name', $seedEventNames)->delete();
+
         DB::table('events')->insert([
             [
                 'organizer_id' => $adminId,

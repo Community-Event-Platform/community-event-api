@@ -73,12 +73,12 @@ class RegistrationController extends Controller
                 $registration = Registration::create([
                     'event_id' => $event->id,
                     'attendee_id' => $user->id,
-                    'status' => 'Approved',
+                    'status' => 'Pending',
                     'waitlist_position' => null,
                     'additional_info' => $additionalInfo,
                 ]);
 
-                return response()->json(['message' => 'Đăng ký tham gia thành công!', 'data' => $registration], 201);
+                return response()->json(['message' => 'Yêu cầu đăng ký đã được gửi. Vui lòng chờ tổ chức duyệt.', 'data' => $registration], 201);
             }
 
             // Event full -> join waitlist
@@ -133,6 +133,93 @@ class RegistrationController extends Controller
             }
 
             return response()->json(['message' => 'Hủy đăng ký thành công', 'data' => $registration], 200);
+        });
+    }
+
+    /**
+     * Organizer approves a pending or waitlisted registration.
+     */
+    public function approveRegistration(Request $request, $registrationId)
+    {
+        $user = $request->user();
+
+        return DB::transaction(function () use ($request, $user, $registrationId) {
+            $registration = Registration::lockForUpdate()->find($registrationId);
+            if (!$registration) {
+                return response()->json(['message' => 'Registration not found'], 404);
+            }
+
+            $event = Event::find($registration->event_id);
+            if (!$event || $event->organizer_id !== $user->id) {
+                return response()->json(['message' => 'Forbidden: Only the organizer can approve registrations'], 403);
+            }
+
+            if ($registration->status === 'Approved') {
+                return response()->json(['message' => 'Registration already approved'], 400);
+            }
+
+            $confirmedCount = Registration::where('event_id', $event->id)
+                ->where('status', 'Approved')
+                ->count();
+
+            if ($confirmedCount >= $event->capacity) {
+                return response()->json(['message' => 'Event is full. Cannot approve registration.'], 400);
+            }
+
+            $registration->update(['status' => 'Approved', 'waitlist_position' => null]);
+
+            if (class_exists('\App\Models\Notification')) {
+                \App\Models\Notification::create([
+                    'user_id' => $registration->attendee_id,
+                    'event_id' => $event->id,
+                    'message' => "Yêu cầu đăng ký của bạn cho sự kiện \"{$event->name}\" đã được duyệt.",
+                    'is_read' => false,
+                ]);
+            }
+
+            return response()->json(['message' => 'Registration approved', 'data' => $registration], 200);
+        });
+    }
+
+    /**
+     * Organizer rejects a pending or waitlisted registration.
+     */
+    public function rejectRegistration(Request $request, $registrationId)
+    {
+        $user = $request->user();
+
+        return DB::transaction(function () use ($request, $user, $registrationId) {
+            $registration = Registration::lockForUpdate()->find($registrationId);
+            if (!$registration) {
+                return response()->json(['message' => 'Registration not found'], 404);
+            }
+
+            $event = Event::find($registration->event_id);
+            if (!$event || $event->organizer_id !== $user->id) {
+                return response()->json(['message' => 'Forbidden: Only the organizer can reject registrations'], 403);
+            }
+
+            if (in_array($registration->status, ['Rejected', 'Cancelled'], true)) {
+                return response()->json(['message' => 'Registration cannot be rejected'], 400);
+            }
+
+            $wasApproved = $registration->status === 'Approved';
+            $registration->update(['status' => 'Rejected', 'waitlist_position' => null]);
+
+            if ($wasApproved) {
+                $this->promoteFromWaitlist($event->id);
+            }
+
+            if (class_exists('\App\Models\Notification')) {
+                \App\Models\Notification::create([
+                    'user_id' => $registration->attendee_id,
+                    'event_id' => $event->id,
+                    'message' => "Yêu cầu đăng ký của bạn cho sự kiện \"{$event->name}\" đã bị từ chối.",
+                    'is_read' => false,
+                ]);
+            }
+
+            return response()->json(['message' => 'Registration rejected', 'data' => $registration], 200);
         });
     }
 
