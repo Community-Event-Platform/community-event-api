@@ -7,6 +7,9 @@ use App\Models\Registration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\RegistrationApproved;
+use App\Mail\RegistrationRejected;
 
 class RegistrationController extends Controller
 {
@@ -167,6 +170,11 @@ class RegistrationController extends Controller
             ]);
         }
 
+        // Queue approval email for promoted attendee
+        if ($first->attendee && $first->attendee->email) {
+            Mail::to($first->attendee->email)->queue(new RegistrationApproved($first));
+        }
+
         // Shift remaining waitlist positions down by 1
         Registration::where('event_id', $eventId)
             ->where('status', 'Waitlisted')
@@ -215,6 +223,128 @@ class RegistrationController extends Controller
             });
 
         return response()->json(['data' => $registrations, 'event' => ['id' => $event->id, 'name' => $event->name, 'capacity' => $event->capacity]], 200);
+    }
+
+    /**
+     * Organizer: Approve a registration. Sends queued email notification.
+     */
+    public function organizerApprove(Request $request, $registrationId)
+    {
+        $user = $request->user();
+
+        return DB::transaction(function () use ($user, $registrationId) {
+            $registration = Registration::lockForUpdate()->with('event', 'attendee')->find($registrationId);
+            if (!$registration) return response()->json(['message' => 'Registration not found'], 404);
+
+            $event = $registration->event;
+            if (!$event || $event->organizer_id !== $user->id) {
+                return response()->json(['message' => 'Forbidden: Only the organizer can perform this action'], 403);
+            }
+
+            if ($registration->status === 'Approved') {
+                return response()->json(['message' => 'Registration already approved'], 400);
+            }
+
+            // Count confirmed seats
+            $confirmedCount = Registration::where('event_id', $event->id)
+                ->whereNull('waitlist_position')
+                ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->count();
+
+            if ($confirmedCount >= $event->capacity) {
+                return response()->json(['message' => 'Event capacity reached; cannot approve'], 400);
+            }
+
+            $wasWaitlisted = $registration->status === 'Waitlisted' && $registration->waitlist_position !== null;
+            $oldWaitPos = $registration->waitlist_position;
+
+            $registration->update(['status' => 'Approved', 'waitlist_position' => null]);
+
+            // If the user was waitlisted, shift others down only for positions greater than the old one
+            if ($wasWaitlisted && $oldWaitPos !== null) {
+                Registration::where('event_id', $event->id)
+                    ->where('status', 'Waitlisted')
+                    ->whereNotNull('waitlist_position')
+                    ->where('waitlist_position', '>', $oldWaitPos)
+                    ->decrement('waitlist_position');
+            }
+
+            // Create notification record if model exists
+            if (class_exists('\App\\Models\\Notification')) {
+                \App\Models\Notification::create([
+                    'user_id' => $registration->attendee_id,
+                    'event_id' => $event->id,
+                    'message' => "Đăng ký của bạn cho sự kiện '{$event->name}' đã được chấp nhận.",
+                    'is_read' => false,
+                ]);
+            }
+
+            // Queue email
+            if ($registration->attendee && $registration->attendee->email) {
+                Mail::to($registration->attendee->email)->queue(new RegistrationApproved($registration));
+            }
+
+            return response()->json(['message' => 'Registration approved', 'data' => $registration], 200);
+        });
+    }
+
+    /**
+     * Organizer: Reject a registration. Sends queued email and promotes waitlist if needed.
+     */
+    public function organizerReject(Request $request, $registrationId)
+    {
+        $user = $request->user();
+
+        return DB::transaction(function () use ($user, $registrationId) {
+            $registration = Registration::lockForUpdate()->with('event', 'attendee')->find($registrationId);
+            if (!$registration) return response()->json(['message' => 'Registration not found'], 404);
+
+            $event = $registration->event;
+            if (!$event || $event->organizer_id !== $user->id) {
+                return response()->json(['message' => 'Forbidden: Only the organizer can perform this action'], 403);
+            }
+
+            if ($registration->status === 'Rejected') {
+                return response()->json(['message' => 'Registration already rejected'], 400);
+            }
+
+            $wasConfirmed = $registration->waitlist_position === null && $registration->status !== 'Waitlisted';
+
+            // Clear waitlist position and mark rejected
+            $oldWaitPos = $registration->waitlist_position;
+            $registration->update(['status' => 'Rejected', 'waitlist_position' => null]);
+
+            // If rejected from confirmed seats, promote first waitlist
+            if ($wasConfirmed) {
+                $this->promoteFromWaitlist($event->id);
+            }
+
+            // If rejected from waitlist, shift down positions
+            if ($oldWaitPos !== null) {
+                Registration::where('event_id', $event->id)
+                    ->where('status', 'Waitlisted')
+                    ->whereNotNull('waitlist_position')
+                    ->where('waitlist_position', '>', $oldWaitPos)
+                    ->decrement('waitlist_position');
+            }
+
+            // Notification
+            if (class_exists('\App\\Models\\Notification')) {
+                \App\Models\Notification::create([
+                    'user_id' => $registration->attendee_id,
+                    'event_id' => $event->id,
+                    'message' => "Đăng ký của bạn cho sự kiện '{$event->name}' không được chấp nhận.",
+                    'is_read' => false,
+                ]);
+            }
+
+            // Queue email
+            if ($registration->attendee && $registration->attendee->email) {
+                Mail::to($registration->attendee->email)->queue(new RegistrationRejected($registration));
+            }
+
+            return response()->json(['message' => 'Registration rejected', 'data' => $registration], 200);
+        });
     }
 
     /**

@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Mail;
+
+use App\Models\Registration;
+use Illuminate\Bus\Queueable;
+use Illuminate\Mail\Mailable;
+use Illuminate\Queue\SerializesModels;
+
+class RegistrationRejected extends Mailable
+{
+    use Queueable, SerializesModels;
+
+    public $registration;
+
+    /**
+     * Create a new message instance.
+     */
+    public function __construct(Registration $registration)
+    {
+        $this->registration = $registration;
+    }
+
+    /**
+     * Build the message.
+     */
+    public function build()
+    {
+        $event = $this->registration->event;
+        return $this->subject('Thông báo: Đăng ký tham gia không được chấp nhận')
+            ->view('emails.registration_rejected')
+            ->with([
+                'attendeeName' => $this->registration->attendee?->name ?? 'Người dùng',
+                'eventName' => $event?->name ?? 'Sự kiện',
+            ]);
+    }
+}

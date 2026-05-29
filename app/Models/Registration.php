@@ -21,6 +21,7 @@ class Registration extends Model
         'attendee_id',
         'status',
         'additional_info',
+        'waitlist_position',
     ];
 
     protected $casts = [
