@@ -10,7 +10,6 @@ use App\Models\Category;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\GoogleController;
-use App\Http\Controllers\PaymentController;
 
 // ===== Public routes =====
 Route::post('/register', [AuthController::class, 'register']);
@@ -51,7 +50,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Registration
     Route::post('/events/{id}/register', [RegistrationController::class, 'register']);
-    Route::post('/events/{id}/register/paid', [PaymentController::class, 'initPayment']);
     Route::get('/registrations', [RegistrationController::class, 'getMyRegistrations']);
     Route::get('/user/profile', [RegistrationController::class, 'getProfileWithRegistrations']);
     Route::patch('/registrations/{id}/cancel', [RegistrationController::class, 'cancelRegistration']);
@@ -67,12 +65,4 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard & Notifications
     Route::get('/dashboard-stats', [DashboardController::class, 'index']);
     Route::get('/notifications', [RegistrationController::class, 'getNotifications']);
-
-    // Payment routes
-    Route::get('/payments/{id}', [PaymentController::class, 'getPaymentStatus']);
-    Route::get('/events/{id}/payment-status', [PaymentController::class, 'checkPaymentStatus']);
 });
-
-// VNPay Return/IPN (public, outside auth)
-Route::get('/payment/vnpay/return', [PaymentController::class, 'vnpayReturn']);
-Route::post('/payment/vnpay/ipn', [PaymentController::class, 'vnpayIpn']);
