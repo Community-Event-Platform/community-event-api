@@ -34,7 +34,8 @@ class RegistrationController extends Controller
                 ->first();
 
             if ($existing) {
-                return response()->json(['message' => 'Bạn đã đăng ký tham gia sự kiện này rồi!'], 400);
+                // AC3: return 409 Conflict when duplicate registration
+                return response()->json(['message' => 'Bạn đã đăng ký sự kiện này'], 409);
             }
 
             // Optional additional info validation if event requires it
@@ -73,13 +74,22 @@ class RegistrationController extends Controller
                 ->count();
 
             if ($confirmedCount < $event->capacity) {
+                // AC1: Free events -> start as Pending; Paid events -> auto Confirmed
+                $isFree = $event->price === null || (is_numeric($event->price) && floatval($event->price) <= 0);
+                $initialStatus = $isFree ? 'Pending' : 'Approved';
+
                 $registration = Registration::create([
                     'event_id' => $event->id,
                     'attendee_id' => $user->id,
-                    'status' => 'Approved',
+                    'status' => $initialStatus,
                     'waitlist_position' => null,
                     'additional_info' => $additionalInfo,
                 ]);
+
+                // AC1: Return appropriate success message
+                if ($isFree) {
+                    return response()->json(['message' => 'Gửi yêu cầu đăng ký thành công, vui lòng chờ duyệt!', 'data' => $registration], 201);
+                }
 
                 return response()->json(['message' => 'Đăng ký tham gia thành công!', 'data' => $registration], 201);
             }
@@ -127,6 +137,20 @@ class RegistrationController extends Controller
                 return response()->json(['message' => 'Registration already cancelled'], 400);
             }
 
+            $event = $registration->event;
+            if ($event) {
+                // Paid events cannot be cancelled by attendee
+                $isPaid = $event->price !== null && is_numeric($event->price) && floatval($event->price) > 0;
+                if ($isPaid) {
+                    return response()->json(['message' => 'Paid events cannot be cancelled'], 400);
+                }
+
+                // Cannot cancel after event has started
+                if ($event->date_time && now()->greaterThanOrEqualTo($event->date_time)) {
+                    return response()->json(['message' => 'Cannot cancel after event has started'], 400);
+                }
+            }
+
             $wasConfirmed = $registration->waitlist_position === null && $registration->status !== 'Waitlisted';
 
             $registration->update(['status' => 'Cancelled', 'waitlist_position' => null]);
@@ -159,13 +183,18 @@ class RegistrationController extends Controller
 
         $event = Event::find($eventId);
         $eventName = $event ? $event->name : 'Sự kiện';
+        $eventTime = $event && $event->date_time ? $event->date_time->format('d/m/Y H:i') : null;
 
         // Create notification if model exists
         if (class_exists('\App\\Models\\Notification')) {
+            $message = "Bạn đã được chuyển từ danh sách chờ sang chính thức cho sự kiện này";
+            if ($eventName) $message .= " - {$eventName}";
+            if ($eventTime) $message .= " at {$eventTime}";
+
             \App\Models\Notification::create([
                 'user_id' => $first->attendee_id,
                 'event_id' => $eventId,
-                'message' => "Bạn đã được đôn lên tham gia sự kiện \"{$eventName}\".",
+                'message' => $message,
                 'is_read' => false,
             ]);
         }
@@ -271,10 +300,20 @@ class RegistrationController extends Controller
 
             // Create notification record if model exists
             if (class_exists('\App\\Models\\Notification')) {
+                // If user was waitlisted and is now approved, use the specific promotion message per AC
+                if ($wasWaitlisted) {
+                    $eventTime = $event && $event->date_time ? $event->date_time->format('d/m/Y H:i') : null;
+                    $message = "Bạn đã được chuyển từ danh sách chờ sang chính thức cho sự kiện này";
+                    if ($event->name) $message .= " - {$event->name}";
+                    if ($eventTime) $message .= " at {$eventTime}";
+                } else {
+                    $message = "Đăng ký của bạn cho sự kiện '{$event->name}' đã được chấp nhận.";
+                }
+
                 \App\Models\Notification::create([
                     'user_id' => $registration->attendee_id,
                     'event_id' => $event->id,
-                    'message' => "Đăng ký của bạn cho sự kiện '{$event->name}' đã được chấp nhận.",
+                    'message' => $message,
                     'is_read' => false,
                 ]);
             }
@@ -417,6 +456,27 @@ class RegistrationController extends Controller
 
         $notifications = \App\Models\Notification::where('user_id', $user->id)->orderBy('created_at', 'desc')->get();
         return response()->json(['success' => true, 'data' => $notifications], 200);
+    }
+
+    /**
+     * Mark a notification as read for current user
+     */
+    public function markNotificationRead(Request $request, $id)
+    {
+        $user = $request->user();
+        if (!class_exists('\App\\Models\\Notification')) {
+            return response()->json(['success' => false, 'message' => 'Not supported'], 400);
+        }
+
+        $notification = \App\Models\Notification::where('id', $id)->where('user_id', $user->id)->first();
+        if (!$notification) {
+            return response()->json(['success' => false, 'message' => 'Notification not found'], 404);
+        }
+
+        $notification->is_read = true;
+        $notification->save();
+
+        return response()->json(['success' => true, 'data' => $notification], 200);
     }
 
     /**

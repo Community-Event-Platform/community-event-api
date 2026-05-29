@@ -67,4 +67,5 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard & Notifications
     Route::get('/dashboard-stats', [DashboardController::class, 'index']);
     Route::get('/notifications', [RegistrationController::class, 'getNotifications']);
+    Route::patch('/notifications/{id}/read', [RegistrationController::class, 'markNotificationRead']);
 });
