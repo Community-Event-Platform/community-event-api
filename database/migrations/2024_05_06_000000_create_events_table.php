@@ -18,6 +18,7 @@ return new class extends Migration
             $table->dateTime('date_time'); // Đổi từ event_date
             $table->integer('capacity')->unsigned();
             $table->string('event_type', 50)->default('Free'); // Mới
+            $table->decimal('price', 10, 2)->nullable(); // Ticket price for Paid events
             $table->string('status', 50)->default('Draft'); // Đổi từ ENUM
             $table->boolean('require_additional_info')->default(false); // Mới
             $table->text('custom_form_spec')->nullable(); // Mới
