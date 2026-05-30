@@ -302,7 +302,7 @@ public function index(Request $request)
             return response()->json(['message' => 'Forbidden: Only organizers can view their events'], 403);
         }
 
-        $events = Event::with('category', 'reviews')
+        $events = Event::with(['category', 'reviews.attendee'])
             ->where('organizer_id', $user->id)
             ->withCount(['registrations as registrations_count' => function ($query) {
                 $query->whereNotIn('status', ['Cancelled', 'Rejected']);
@@ -322,11 +322,13 @@ public function index(Request $request)
             // Format reviews with user names
             if ($ev->reviews) {
                 $ev->reviews = $ev->reviews->map(function ($review) {
+                    $reviewerName = $review->attendee->name ?? $review->attendee_name ?? 'Anonymous';
                     return [
                         'id' => $review->id,
                         'rating' => $review->rating,
                         'comment' => $review->comment,
-                        'user_name' => $review->attendee->name ?? 'Anonymous',
+                        'user_name' => $reviewerName,
+                        'reviewer_name' => $reviewerName,
                         'created_at' => $review->created_at,
                     ];
                 });
