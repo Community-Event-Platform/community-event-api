@@ -11,6 +11,6 @@
 
     <p>If you need more details, please contact the event organizer.</p>
 
-    <p>Sincerely,<br/>EventHub Team</p>
+    <p>Best regards,<br/>EventHub Team</p>
 </body>
 </html>

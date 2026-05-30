@@ -10,7 +10,7 @@
     <p>Congratulations! Your registration for the event "{{ $eventName }}" has been approved.</p>
 
     @if($eventDate)
-        <p>Thời gian: {{ $eventDate }}</p>
+        <p>Event date & time: {{ $eventDate }}</p>
     @endif
 
     @if($eventLocation)
@@ -19,6 +19,6 @@
 
     <p>We look forward to seeing you at the event!</p>
 
-    <p>Trân trọng,<br/>EventHub Team</p>
+    <p>Best regards,<br/>EventHub Team</p>
 </body>
 </html>
