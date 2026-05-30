@@ -2,22 +2,22 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Đăng ký được chấp nhận</title>
+    <title>Registration Approved</title>
 </head>
 <body>
-    <p>Xin chào {{ $attendeeName }},</p>
+    <p>Hello {{ $attendeeName }},</p>
 
-    <p>Chúc mừng! Đăng ký tham gia của bạn cho sự kiện "{{ $eventName }}" đã được chấp nhận.</p>
+    <p>Congratulations! Your registration for the event "{{ $eventName }}" has been approved.</p>
 
     @if($eventDate)
         <p>Thời gian: {{ $eventDate }}</p>
     @endif
 
     @if($eventLocation)
-        <p>Địa điểm: {{ $eventLocation }}</p>
+        <p>Location: {{ $eventLocation }}</p>
     @endif
 
-    <p>Hẹn gặp bạn tại sự kiện!</p>
+    <p>We look forward to seeing you at the event!</p>
 
     <p>Trân trọng,<br/>EventHub Team</p>
 </body>
