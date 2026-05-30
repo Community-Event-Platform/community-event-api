@@ -51,6 +51,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Registration
     Route::post('/events/{id}/register', [RegistrationController::class, 'register']);
+    Route::post('/events/{id}/register/free', [RegistrationController::class, 'register']);
     Route::post('/events/{id}/register/paid', [PaymentController::class, 'initPayment']);
     Route::get('/registrations', [RegistrationController::class, 'getMyRegistrations']);
     Route::get('/user/profile', [RegistrationController::class, 'getProfileWithRegistrations']);
