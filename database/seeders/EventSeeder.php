@@ -462,7 +462,7 @@ Yêu cầu:
 - Hoàn thành các bài tập trình bày được giao.',
                 'category_id' => $catMap['Workshop'],
                 'location' => 'PNV Training Center, Đà Nẵng',
-                'date_time' => '2026-08-02 09:00:00',
+                'date_time' => '2026-05-30 13:45:00',
                 'capacity' => 45,
                 'attendees' => 0,
                 'rating' => 4.5,

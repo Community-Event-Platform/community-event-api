@@ -205,10 +205,9 @@ public function index(Request $request)
             return response()->json(['message' => 'Event not found'], 404);
         }
 
-        // Check if event has ended or has been marked ended by organizer
-        $eventEndTime = $event->end_date ?? $event->date_time;
-        if ($event->status !== 'ended' && now()->isBefore($eventEndTime)) {
-            return response()->json(['message' => 'Sự kiện chưa kết thúc. Bạn chỉ có thể đánh giá sau khi sự kiện kết thúc.'], 400);
+        // Check if event has been marked as ended by organizer
+        if ($event->status !== 'ended') {
+            return response()->json(['message' => 'Sự kiện chưa được kết thúc. Bạn chỉ có thể đánh giá sau khi người tổ chức kết thúc sự kiện.'], 400);
         }
 
         $isRegistered = Registration::where('event_id', $event->id)
@@ -302,7 +301,7 @@ public function index(Request $request)
             return response()->json(['message' => 'Forbidden: Only organizers can view their events'], 403);
         }
 
-        $events = Event::with('category')
+        $events = Event::with('category', 'reviews')
             ->where('organizer_id', $user->id)
             ->withCount(['registrations as registrations_count' => function ($query) {
                 $query->whereNotIn('status', ['Cancelled', 'Rejected']);
@@ -310,13 +309,27 @@ public function index(Request $request)
             ->withCount(['registrations as participants_count' => function ($query) {
                 $query->where('status', 'Approved');
             }])
+            ->withCount(['reviews as reviews_count'])
             ->orderBy('date_time')
             ->get();
 
-        // add `image` attribute for frontend compatibility
+        // add `image` attribute for frontend compatibility and format reviews
         $events->each(function ($ev) {
             $ev->setAttribute('image', $ev->image_url ?? null);
             $ev->setAttribute('remaining_seats', max(0, $ev->capacity - ($ev->registrations_count ?? 0)));
+            
+            // Format reviews with user names
+            if ($ev->reviews) {
+                $ev->reviews = $ev->reviews->map(function ($review) {
+                    return [
+                        'id' => $review->id,
+                        'rating' => $review->rating,
+                        'comment' => $review->comment,
+                        'user_name' => $review->attendee->name ?? 'Anonymous',
+                        'created_at' => $review->created_at,
+                    ];
+                });
+            }
         });
 
         return response()->json(['data' => $events], 200);
