@@ -31,6 +31,11 @@ class Registration extends Model
         'waitlist_position' => 'integer',  // CEP-82: null = confirmed, 1+ = waitlist FIFO position
     ];
 
+    public function getStatusAttribute($value)
+    {
+        return $value === 'Confirmed' ? 'Approved' : $value;
+    }
+
     // ─── Relationships ────────────────────────────────────────────────────────
 
     public function event()

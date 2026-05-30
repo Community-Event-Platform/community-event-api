@@ -25,7 +25,7 @@ class RegistrationSeeder extends Seeder
 
         // Chỉ tạo đăng ký nếu có đủ dữ liệu
         if ($event1 && $event2 && $event3 && $attendee1 && $attendee2 && $attendee3 && $attendee4 && $attendee5) {
-            DB::table('registrations')->insert([
+            DB::table('registrations')->upsert([
                 [
                     'event_id' => $event1,
                     'attendee_id' => $attendee1,
@@ -82,7 +82,19 @@ class RegistrationSeeder extends Seeder
                     'created_at' => now(),
                     'updated_at' => now(),
                 ],
-            ]);
+            ], ['event_id', 'attendee_id'], ['status', 'updated_at']);
+
+            $pastEvent = DB::table('events')->where('name', 'Sự kiện thử nghiệm đã kết thúc')->value('id');
+            if ($pastEvent) {
+                DB::table('registrations')->updateOrInsert(
+                    ['event_id' => $pastEvent, 'attendee_id' => $attendee3],
+                    [
+                        'status' => 'Confirmed',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+            }
         }
     }
 }
