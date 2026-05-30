@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
@@ -70,6 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Dashboard & Notifications
     Route::get('/dashboard-stats', [DashboardController::class, 'index']);
     Route::get('/notifications', [RegistrationController::class, 'getNotifications']);
+    Route::patch('/notifications/{id}/read', [RegistrationController::class, 'markNotificationRead']);
 
     // Payment routes
     Route::get('/payments/{id}', [PaymentController::class, 'getPaymentStatus']);
@@ -79,3 +80,4 @@ Route::middleware('auth:sanctum')->group(function () {
 // VNPay Return/IPN (public, outside auth)
 Route::get('/payment/vnpay/return', [PaymentController::class, 'vnpayReturn']);
 Route::post('/payment/vnpay/ipn', [PaymentController::class, 'vnpayIpn']);
+
