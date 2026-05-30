@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Event;
 use App\Models\Registration;
+use App\Models\FormResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -27,15 +28,16 @@ class RegistrationController extends Controller
                 return response()->json(['message' => 'Event not found'], 404);
             }
 
-            // Prevent duplicate registrations (except Cancelled)
+            // Prepare questions array (may be filled below)
+            $questions = [];
+
+            // Prevent duplicate registrations and reuse cancelled registrations
             $existing = Registration::where('event_id', $event->id)
                 ->where('attendee_id', $user->id)
-                ->whereNotIn('status', ['Cancelled'])
                 ->first();
 
-            if ($existing) {
-                // AC3: return 409 Conflict when duplicate registration
-                return response()->json(['message' => 'Bạn đã đăng ký sự kiện này'], 409);
+            if ($existing && $existing->status !== 'Cancelled') {
+                return response()->json(['message' => 'You have already registered for this event'], 409);
             }
 
             // Optional additional info validation if event requires it
@@ -51,11 +53,11 @@ class RegistrationController extends Controller
                     $isRequired = is_array($question) ? ($question['is_required'] ?? false) : false;
                     $fieldName = "additional_info_{$index}";
                     if ($isRequired && empty($request->input($fieldName))) {
-                        $errors[$fieldName] = 'Vui lòng trả lời câu hỏi bắt buộc.';
+                        $errors[$fieldName] = 'Please answer this required question.';
                     }
                 }
                 if (!empty($errors)) {
-                    return response()->json(['message' => 'Vui lòng điền đầy đủ thông tin bắt buộc', 'errors' => $errors], 422);
+                    return response()->json(['message' => 'Please complete all required fields', 'errors' => $errors], 422);
                 }
 
                 // collect answers into associative array if present
@@ -78,20 +80,63 @@ class RegistrationController extends Controller
                 $isFree = $event->price === null || (is_numeric($event->price) && floatval($event->price) <= 0);
                 $initialStatus = $isFree ? 'Pending' : 'Approved';
 
-                $registration = Registration::create([
-                    'event_id' => $event->id,
-                    'attendee_id' => $user->id,
-                    'status' => $initialStatus,
-                    'waitlist_position' => null,
-                    'additional_info' => $additionalInfo,
-                ]);
+                if ($existing && $existing->status === 'Cancelled') {
+                    $existing->update([
+                        'status' => $initialStatus,
+                        'waitlist_position' => null,
+                        'additional_info' => $additionalInfo,
+                    ]);
+                    $registration = $existing;
+                } else {
+                    $registration = Registration::create([
+                        'event_id' => $event->id,
+                        'attendee_id' => $user->id,
+                        'status' => $initialStatus,
+                        'waitlist_position' => null,
+                        'additional_info' => $additionalInfo,
+                    ]);
+                }
 
                 // AC1: Return appropriate success message
                 if ($isFree) {
-                    return response()->json(['message' => 'Gửi yêu cầu đăng ký thành công, vui lòng chờ duyệt!', 'data' => $registration], 201);
+                    // Persist form responses if any
+                    if (!empty($questions)) {
+                        FormResponse::where('registration_id', $registration->id)->delete();
+                        foreach ($questions as $qIndex => $q) {
+                            $qText = is_string($q) ? $q : ($q['question'] ?? $q['name'] ?? "question_{$qIndex}");
+                            $qType = is_string($q) ? 'text' : ($q['type'] ?? 'text');
+                            $val = $additionalInfo[$qText] ?? null;
+                            $resp = is_array($val) ? json_encode($val) : ($val !== null ? (string)$val : null);
+                            FormResponse::create([
+                                'registration_id' => $registration->id,
+                                'field_name' => $qText,
+                                'field_type' => $qType,
+                                'response_value' => $resp,
+                            ]);
+                        }
+                    }
+
+                    return response()->json(['message' => 'Registration request submitted successfully. Please wait for approval.', 'data' => $registration], 201);
                 }
 
-                return response()->json(['message' => 'Đăng ký tham gia thành công!', 'data' => $registration], 201);
+                // Persist form responses if any
+                if (!empty($questions)) {
+                    FormResponse::where('registration_id', $registration->id)->delete();
+                    foreach ($questions as $qIndex => $q) {
+                        $qText = is_string($q) ? $q : ($q['question'] ?? $q['name'] ?? "question_{$qIndex}");
+                        $qType = is_string($q) ? 'text' : ($q['type'] ?? 'text');
+                        $val = $additionalInfo[$qText] ?? null;
+                        $resp = is_array($val) ? json_encode($val) : ($val !== null ? (string)$val : null);
+                        FormResponse::create([
+                            'registration_id' => $registration->id,
+                            'field_name' => $qText,
+                            'field_type' => $qType,
+                            'response_value' => $resp,
+                        ]);
+                    }
+                }
+
+                return response()->json(['message' => 'Registration completed successfully!', 'data' => $registration], 201);
             }
 
             // Event full -> join waitlist
@@ -100,16 +145,42 @@ class RegistrationController extends Controller
                 ->max('waitlist_position');
             $nextPosition = ($nextPosition ?? 0) + 1;
 
-            $registration = Registration::create([
-                'event_id' => $event->id,
-                'attendee_id' => $user->id,
-                'status' => 'Waitlisted',
-                'waitlist_position' => $nextPosition,
-                'additional_info' => $additionalInfo,
-            ]);
+            if ($existing && $existing->status === 'Cancelled') {
+                $existing->update([
+                    'status' => 'Waitlisted',
+                    'waitlist_position' => $nextPosition,
+                    'additional_info' => $additionalInfo,
+                ]);
+                $registration = $existing;
+            } else {
+                $registration = Registration::create([
+                    'event_id' => $event->id,
+                    'attendee_id' => $user->id,
+                    'status' => 'Waitlisted',
+                    'waitlist_position' => $nextPosition,
+                    'additional_info' => $additionalInfo,
+                ]);
+            }
+
+            // Persist form responses if any
+            if (!empty($questions)) {
+                FormResponse::where('registration_id', $registration->id)->delete();
+                foreach ($questions as $qIndex => $q) {
+                    $qText = is_string($q) ? $q : ($q['question'] ?? $q['name'] ?? "question_{$qIndex}");
+                    $qType = is_string($q) ? 'text' : ($q['type'] ?? 'text');
+                    $val = $additionalInfo[$qText] ?? null;
+                    $resp = is_array($val) ? json_encode($val) : ($val !== null ? (string)$val : null);
+                    FormResponse::create([
+                        'registration_id' => $registration->id,
+                        'field_name' => $qText,
+                        'field_type' => $qType,
+                        'response_value' => $resp,
+                    ]);
+                }
+            }
 
             return response()->json([
-                'message' => 'Sự kiện đã hết ghế. Bạn đã được thêm vào danh sách chờ!',
+                'message' => 'Event is fully booked. You have been added to the waitlist!',
                 'waitlist_position' => $nextPosition,
                 'data' => $registration,
             ], 201);
@@ -159,7 +230,7 @@ class RegistrationController extends Controller
                 $this->promoteFromWaitlist($registration->event_id);
             }
 
-            return response()->json(['message' => 'Hủy đăng ký thành công', 'data' => $registration], 200);
+            return response()->json(['message' => 'Registration cancelled successfully', 'data' => $registration], 200);
         });
     }
 
@@ -182,12 +253,12 @@ class RegistrationController extends Controller
         $first->update(['status' => 'Approved', 'waitlist_position' => null]);
 
         $event = Event::find($eventId);
-        $eventName = $event ? $event->name : 'Sự kiện';
+        $eventName = $event ? $event->name : 'Event';
         $eventTime = $event && $event->date_time ? $event->date_time->format('d/m/Y H:i') : null;
 
         // Create notification if model exists
         if (class_exists('\App\\Models\\Notification')) {
-            $message = "Bạn đã được chuyển từ danh sách chờ sang chính thức cho sự kiện này";
+            $message = "You have been moved from the waitlist to confirmed for this event";
             if ($eventName) $message .= " - {$eventName}";
             if ($eventTime) $message .= " at {$eventTime}";
 
@@ -274,10 +345,14 @@ class RegistrationController extends Controller
                 return response()->json(['message' => 'Registration already approved'], 400);
             }
 
-            // Count confirmed seats
+            // Count confirmed seats, excluding the current pending registration if it is already occupying a reserved slot.
             $confirmedCount = Registration::where('event_id', $event->id)
                 ->whereNull('waitlist_position')
                 ->whereNotIn('status', ['Cancelled', 'Rejected'])
+                ->when(
+                    $registration->status === 'Pending' && $registration->waitlist_position === null,
+                    fn($query) => $query->where('id', '!=', $registration->id)
+                )
                 ->count();
 
             if ($confirmedCount >= $event->capacity) {
@@ -303,11 +378,11 @@ class RegistrationController extends Controller
                 // If user was waitlisted and is now approved, use the specific promotion message per AC
                 if ($wasWaitlisted) {
                     $eventTime = $event && $event->date_time ? $event->date_time->format('d/m/Y H:i') : null;
-                    $message = "Bạn đã được chuyển từ danh sách chờ sang chính thức cho sự kiện này";
+                    $message = "You have been moved from the waitlist to confirmed for this event";
                     if ($event->name) $message .= " - {$event->name}";
                     if ($eventTime) $message .= " at {$eventTime}";
                 } else {
-                    $message = "Đăng ký của bạn cho sự kiện '{$event->name}' đã được chấp nhận.";
+                    $message = "Your registration for the event '{$event->name}' has been approved.";
                 }
 
                 \App\Models\Notification::create([
@@ -372,7 +447,7 @@ class RegistrationController extends Controller
                 \App\Models\Notification::create([
                     'user_id' => $registration->attendee_id,
                     'event_id' => $event->id,
-                    'message' => "Đăng ký của bạn cho sự kiện '{$event->name}' không được chấp nhận.",
+                    'message' => "Your registration for the event '{$event->name}' was not approved.",
                     'is_read' => false,
                 ]);
             }
