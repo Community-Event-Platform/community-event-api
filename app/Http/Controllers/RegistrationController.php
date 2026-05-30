@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Registration;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
 class RegistrationController extends Controller
@@ -24,6 +25,10 @@ class RegistrationController extends Controller
                 return response()->json(['message' => 'Event not found'], 404);
             }
 
+            if ($event->price && $event->price > 0) {
+                return response()->json(['message' => 'Sự kiện này yêu cầu thanh toán. Vui lòng sử dụng quy trình đăng ký trả phí.'], 400);
+            }
+
             // Prevent duplicate registrations (except Cancelled)
             $existing = Registration::where('event_id', $event->id)
                 ->where('attendee_id', $user->id)
@@ -36,6 +41,10 @@ class RegistrationController extends Controller
 
             // Optional additional info validation if event requires it
             $additionalInfo = $request->input('additional_info');
+            if (!is_array($additionalInfo)) {
+                $additionalInfo = [];
+            }
+
             if ($event->require_additional_info && $event->custom_form_spec) {
                 $formSpec = is_string($event->custom_form_spec)
                     ? json_decode($event->custom_form_spec, true)
@@ -61,6 +70,15 @@ class RegistrationController extends Controller
                     $fieldName = "additional_info_{$index}";
                     $additionalInfo[$questionText] = $request->input($fieldName);
                 }
+            }
+
+            if ($request->filled('motivation')) {
+                $additionalInfo['motivation'] = $request->input('motivation');
+            }
+
+            if ($request->hasFile('id_card')) {
+                $path = $request->file('id_card')->store('public/id_cards');
+                $additionalInfo['id_card_url'] = Storage::url($path);
             }
 
             // Count confirmed seats
@@ -122,6 +140,10 @@ class RegistrationController extends Controller
 
             if ($registration->status === 'Cancelled') {
                 return response()->json(['message' => 'Registration already cancelled'], 400);
+            }
+
+            if ($registration->payment_id || ($registration->event && $registration->event->price > 0)) {
+                return response()->json(['message' => 'Cannot cancel a paid event registration'], 400);
             }
 
             $wasConfirmed = $registration->waitlist_position === null && $registration->status !== 'Waitlisted';

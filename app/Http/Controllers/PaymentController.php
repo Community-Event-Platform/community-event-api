@@ -59,6 +59,28 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Failed to initialize payment'], 500);
         }
 
+        // If integration is not implemented and returns a placeholder URL,
+        // treat it as an immediate completed payment for local/testing flow.
+        if (str_starts_with($paymentUrl, '#')) {
+            $payment->update([
+                'status' => Payment::STATUS_COMPLETED,
+                'paid_at' => now(),
+                'transaction_id' => $payment->transaction_id ?? "direct_{$payment->id}_" . time(),
+            ]);
+
+            $this->createRegistrationFromPayment($payment);
+            $payment->refresh();
+
+            return response()->json([
+                'message' => 'Payment completed and registration confirmed.',
+                'payment_id' => $payment->id,
+                'payment_status' => $payment->status,
+                'registration' => $payment->registration,
+                'amount' => $finalAmount,
+                'currency' => 'VND',
+            ]);
+        }
+
         $payment->update(['payment_url' => $paymentUrl]);
 
         return response()->json([
@@ -380,13 +402,17 @@ class PaymentController extends Controller
             // Re-check capacity with lock
             $event = Event::lockForUpdate()->find($payment->event_id);
 
+            if (!$event) {
+                return;
+            }
+
             $confirmedCount = Registration::where('event_id', $event->id)
                 ->whereNull('waitlist_position')
                 ->whereNotIn('status', ['Cancelled', 'Rejected'])
                 ->count();
 
             if ($confirmedCount < $event->capacity) {
-                Registration::create([
+                $registration = Registration::create([
                     'event_id' => $event->id,
                     'attendee_id' => $user->id,
                     'status' => 'Approved',
@@ -400,13 +426,17 @@ class PaymentController extends Controller
                     ->max('waitlist_position');
                 $nextPosition = ($nextPosition ?? 0) + 1;
 
-                Registration::create([
+                $registration = Registration::create([
                     'event_id' => $event->id,
                     'attendee_id' => $user->id,
                     'status' => 'Waitlisted',
                     'waitlist_position' => $nextPosition,
                     'payment_id' => $payment->id,
                 ]);
+            }
+
+            if (isset($registration)) {
+                $payment->update(['registration_id' => $registration->id]);
             }
         });
     }

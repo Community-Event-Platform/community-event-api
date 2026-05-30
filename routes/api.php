@@ -62,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Participants
     Route::get('/events/{id}/participants', [RegistrationController::class, 'eventParticipants']);
     Route::get('/organizer/participants', [RegistrationController::class, 'allParticipants']);
+    Route::patch('/events/{id}/end', [EventController::class, 'endEvent']);
 
     // Reviews
     Route::post('/events/{id}/reviews', [EventController::class, 'storeReview']);

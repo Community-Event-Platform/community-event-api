@@ -20,6 +20,8 @@ class Registration extends Model
         'event_id',
         'attendee_id',
         'status',
+        'waitlist_position',
+        'payment_id',
         'additional_info',
     ];
 
