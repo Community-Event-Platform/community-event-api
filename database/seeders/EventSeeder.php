@@ -49,6 +49,7 @@ class EventSeeder extends Seeder
             'Bootcamp React trong 1 ngày',
             'Ngày hội định hướng nghề nghiệp',
             'Gala kết nối cộng đồng EventHub',
+            'Sự kiện thử nghiệm đã kết thúc',
         ];
 
         DB::table('events')->whereIn('name', $seedEventNames)->delete();
@@ -613,6 +614,25 @@ Yêu cầu:
                 'require_additional_info' => false,
                 'custom_form_spec' => null,
                 'image_url' => 'event-20.jpg',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'organizer_id' => $adminId,
+                'name' => 'Sự kiện thử nghiệm đã kết thúc',
+                'description' => 'Sự kiện mẫu đã kết thúc để kiểm thử chức năng đánh giá sau sự kiện.',
+                'category_id' => $catMap['Community'],
+                'location' => 'Hội trường Test, Hà Nội',
+                'date_time' => now()->subDays(7)->format('Y-m-d H:i:s'),
+                'capacity' => 100,
+                'attendees' => 0,
+                'rating' => 0,
+                'price' => 0,
+                'event_type' => 'Free',
+                'status' => 'published',
+                'require_additional_info' => false,
+                'custom_form_spec' => null,
+                'image_url' => 'event-test-past.jpg',
                 'created_at' => $now,
                 'updated_at' => $now,
             ],
