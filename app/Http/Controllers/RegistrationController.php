@@ -7,6 +7,7 @@ use App\Models\Registration;
 use App\Models\FormResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\RegistrationApproved;
@@ -28,6 +29,10 @@ class RegistrationController extends Controller
                 return response()->json(['message' => 'Event not found'], 404);
             }
 
+            if ($event->price && $event->price > 0) {
+                return response()->json(['message' => 'Sự kiện này yêu cầu thanh toán. Vui lòng sử dụng quy trình đăng ký trả phí.'], 400);
+            }
+
             // Prepare questions array (may be filled below)
             $questions = [];
 
@@ -42,6 +47,10 @@ class RegistrationController extends Controller
 
             // Optional additional info validation if event requires it
             $additionalInfo = $request->input('additional_info');
+            if (!is_array($additionalInfo)) {
+                $additionalInfo = [];
+            }
+
             if ($event->require_additional_info && $event->custom_form_spec) {
                 $formSpec = is_string($event->custom_form_spec)
                     ? json_decode($event->custom_form_spec, true)
@@ -69,6 +78,15 @@ class RegistrationController extends Controller
                 }
             }
 
+            if ($request->filled('motivation')) {
+                $additionalInfo['motivation'] = $request->input('motivation');
+            }
+
+            if ($request->hasFile('id_card')) {
+                $path = $request->file('id_card')->store('public/id_cards');
+                $additionalInfo['id_card_url'] = Storage::url($path);
+            }
+
             // Count confirmed seats
             $confirmedCount = Registration::where('event_id', $event->id)
                 ->whereNull('waitlist_position')
@@ -76,67 +94,15 @@ class RegistrationController extends Controller
                 ->count();
 
             if ($confirmedCount < $event->capacity) {
-                // AC1: Free events -> start as Pending; Paid events -> auto Confirmed
-                $isFree = $event->price === null || (is_numeric($event->price) && floatval($event->price) <= 0);
-                $initialStatus = $isFree ? 'Pending' : 'Approved';
+                $registration = Registration::create([
+                    'event_id' => $event->id,
+                    'attendee_id' => $user->id,
+                    'status' => 'Approved',
+                    'waitlist_position' => null,
+                    'additional_info' => $additionalInfo,
+                ]);
 
-                if ($existing && $existing->status === 'Cancelled') {
-                    $existing->update([
-                        'status' => $initialStatus,
-                        'waitlist_position' => null,
-                        'additional_info' => $additionalInfo,
-                    ]);
-                    $registration = $existing;
-                } else {
-                    $registration = Registration::create([
-                        'event_id' => $event->id,
-                        'attendee_id' => $user->id,
-                        'status' => $initialStatus,
-                        'waitlist_position' => null,
-                        'additional_info' => $additionalInfo,
-                    ]);
-                }
-
-                // AC1: Return appropriate success message
-                if ($isFree) {
-                    // Persist form responses if any
-                    if (!empty($questions)) {
-                        FormResponse::where('registration_id', $registration->id)->delete();
-                        foreach ($questions as $qIndex => $q) {
-                            $qText = is_string($q) ? $q : ($q['question'] ?? $q['name'] ?? "question_{$qIndex}");
-                            $qType = is_string($q) ? 'text' : ($q['type'] ?? 'text');
-                            $val = $additionalInfo[$qText] ?? null;
-                            $resp = is_array($val) ? json_encode($val) : ($val !== null ? (string)$val : null);
-                            FormResponse::create([
-                                'registration_id' => $registration->id,
-                                'field_name' => $qText,
-                                'field_type' => $qType,
-                                'response_value' => $resp,
-                            ]);
-                        }
-                    }
-
-                    return response()->json(['message' => 'Registration request submitted successfully. Please wait for approval.', 'data' => $registration], 201);
-                }
-
-                // Persist form responses if any
-                if (!empty($questions)) {
-                    FormResponse::where('registration_id', $registration->id)->delete();
-                    foreach ($questions as $qIndex => $q) {
-                        $qText = is_string($q) ? $q : ($q['question'] ?? $q['name'] ?? "question_{$qIndex}");
-                        $qType = is_string($q) ? 'text' : ($q['type'] ?? 'text');
-                        $val = $additionalInfo[$qText] ?? null;
-                        $resp = is_array($val) ? json_encode($val) : ($val !== null ? (string)$val : null);
-                        FormResponse::create([
-                            'registration_id' => $registration->id,
-                            'field_name' => $qText,
-                            'field_type' => $qType,
-                            'response_value' => $resp,
-                        ]);
-                    }
-                }
-
-                return response()->json(['message' => 'Registration completed successfully!', 'data' => $registration], 201);
+                return response()->json(['message' => 'Đăng ký tham gia thành công!', 'data' => $registration], 201);
             }
 
             // Event full -> join waitlist
@@ -208,20 +174,6 @@ class RegistrationController extends Controller
                 return response()->json(['message' => 'Registration already cancelled'], 400);
             }
 
-            $event = $registration->event;
-            if ($event) {
-                // Paid events cannot be cancelled by attendee
-                $isPaid = $event->price !== null && is_numeric($event->price) && floatval($event->price) > 0;
-                if ($isPaid) {
-                    return response()->json(['message' => 'Paid events cannot be cancelled'], 400);
-                }
-
-                // Cannot cancel after event has started
-                if ($event->date_time && now()->greaterThanOrEqualTo($event->date_time)) {
-                    return response()->json(['message' => 'Cannot cancel after event has started'], 400);
-                }
-            }
-
             $wasConfirmed = $registration->waitlist_position === null && $registration->status !== 'Waitlisted';
 
             $registration->update(['status' => 'Cancelled', 'waitlist_position' => null]);
@@ -231,6 +183,93 @@ class RegistrationController extends Controller
             }
 
             return response()->json(['message' => 'Registration cancelled successfully', 'data' => $registration], 200);
+        });
+    }
+
+    /**
+     * Organizer approves a pending or waitlisted registration.
+     */
+    public function approveRegistration(Request $request, $registrationId)
+    {
+        $user = $request->user();
+
+        return DB::transaction(function () use ($request, $user, $registrationId) {
+            $registration = Registration::lockForUpdate()->find($registrationId);
+            if (!$registration) {
+                return response()->json(['message' => 'Registration not found'], 404);
+            }
+
+            $event = Event::find($registration->event_id);
+            if (!$event || $event->organizer_id !== $user->id) {
+                return response()->json(['message' => 'Forbidden: Only the organizer can approve registrations'], 403);
+            }
+
+            if ($registration->status === 'Approved') {
+                return response()->json(['message' => 'Registration already approved'], 400);
+            }
+
+            $confirmedCount = Registration::where('event_id', $event->id)
+                ->where('status', 'Approved')
+                ->count();
+
+            if ($confirmedCount >= $event->capacity) {
+                return response()->json(['message' => 'Event is full. Cannot approve registration.'], 400);
+            }
+
+            $registration->update(['status' => 'Approved', 'waitlist_position' => null]);
+
+            if (class_exists('\App\Models\Notification')) {
+                \App\Models\Notification::create([
+                    'user_id' => $registration->attendee_id,
+                    'event_id' => $event->id,
+                    'message' => "Yêu cầu đăng ký của bạn cho sự kiện \"{$event->name}\" đã được duyệt.",
+                    'is_read' => false,
+                ]);
+            }
+
+            return response()->json(['message' => 'Registration approved', 'data' => $registration], 200);
+        });
+    }
+
+    /**
+     * Organizer rejects a pending or waitlisted registration.
+     */
+    public function rejectRegistration(Request $request, $registrationId)
+    {
+        $user = $request->user();
+
+        return DB::transaction(function () use ($request, $user, $registrationId) {
+            $registration = Registration::lockForUpdate()->find($registrationId);
+            if (!$registration) {
+                return response()->json(['message' => 'Registration not found'], 404);
+            }
+
+            $event = Event::find($registration->event_id);
+            if (!$event || $event->organizer_id !== $user->id) {
+                return response()->json(['message' => 'Forbidden: Only the organizer can reject registrations'], 403);
+            }
+
+            if (in_array($registration->status, ['Rejected', 'Cancelled'], true)) {
+                return response()->json(['message' => 'Registration cannot be rejected'], 400);
+            }
+
+            $wasApproved = $registration->status === 'Approved';
+            $registration->update(['status' => 'Rejected', 'waitlist_position' => null]);
+
+            if ($wasApproved) {
+                $this->promoteFromWaitlist($event->id);
+            }
+
+            if (class_exists('\App\Models\Notification')) {
+                \App\Models\Notification::create([
+                    'user_id' => $registration->attendee_id,
+                    'event_id' => $event->id,
+                    'message' => "Yêu cầu đăng ký của bạn cho sự kiện \"{$event->name}\" đã bị từ chối.",
+                    'is_read' => false,
+                ]);
+            }
+
+            return response()->json(['message' => 'Registration rejected', 'data' => $registration], 200);
         });
     }
 

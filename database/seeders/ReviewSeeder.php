@@ -23,36 +23,40 @@ class ReviewSeeder extends Seeder
 
         // Chá»‰ táº¡o Ä‘Ã¡nh giÃ¡ náº¿u cÃ³ Ä‘á»§ dá»¯ liá»‡u
         if ($event1 && $event2 && $attendee1 && $attendee2 && $attendee3 && $attendee4) {
-            DB::table('reviews')->insert([
+            DB::table('reviews')->upsert([
                 [
                     'event_id' => $event1,
                     'attendee_id' => $attendee1,
                     'rating' => 5,
-                    'comment' => 'Sá»± kiá»‡n tuyá»‡t vá»i! Ã‚m nháº¡c hay, khÃ´ng khÃ­ tuyá»‡t vá»i.',
+                    'comment' => 'Sự kiện tuyệt vời! Âm nhạc hay, không khí tuyệt vời.',
                     'created_at' => now(),
+                    'updated_at' => now(),
                 ],
                 [
                     'event_id' => $event1,
                     'attendee_id' => $attendee2,
                     'rating' => 4,
-                    'comment' => 'Ráº¥t thÃ­ch buá»•i hÃ²a nháº¡c nÃ y. Chá»‰ hÆ¡i quÃ¡ Ä‘Ã´ng.',
+                    'comment' => 'Rất thích buổi hòa nhạc này. Chỉ hơi quá đông.',
                     'created_at' => now(),
+                    'updated_at' => now(),
                 ],
                 [
                     'event_id' => $event2,
                     'attendee_id' => $attendee1,
                     'rating' => 5,
-                    'comment' => 'Giáº£i Ä‘áº¥u tuyá»‡t vá»i, tá»• chá»©c chuyÃªn nghiá»‡p.',
+                    'comment' => 'Giải đấu tuyệt vời, tổ chức chuyên nghiệp.',
                     'created_at' => now(),
+                    'updated_at' => now(),
                 ],
                 [
                     'event_id' => $event2,
                     'attendee_id' => $attendee4,
                     'rating' => 4,
-                    'comment' => 'ThÃ­ch há»£p tÃ¡c vá»›i má»i ngÆ°á»i táº¡i Ä‘Ã¢y. SÃ¢n tá»‘t.',
+                    'comment' => 'Thích hợp tác với mọi người tại đây. Sân tốt.',
                     'created_at' => now(),
+                    'updated_at' => now(),
                 ],
-            ]);
+            ], ['event_id', 'attendee_id'], ['rating', 'comment', 'updated_at']);
         }
     }
 }

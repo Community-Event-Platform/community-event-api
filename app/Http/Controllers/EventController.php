@@ -55,7 +55,7 @@ public function index(Request $request)
             'location' => 'required|string|max:255',
             'date_time' => 'required|date',
             'capacity' => 'required|integer|min:1',
-            'status' => 'required|in:published,draft,cancelled',
+            'status' => 'required|in:published,draft,cancelled,ended',
             'image' => 'nullable|image|max:5120',
             'event_type' => 'nullable|string|max:50',
             'require_additional_info' => 'nullable|boolean',
@@ -110,7 +110,12 @@ public function index(Request $request)
             return response()->json(['message' => 'Event not found'], 404);
         }
 
-        $registrationsCount = Registration::where('event_id', $event->id)->count();
+        $registrationsCount = Registration::where('event_id', $event->id)
+            ->whereNotIn('status', ['Cancelled', 'Rejected'])
+            ->count();
+        $approvedCount = Registration::where('event_id', $event->id)
+            ->where('status', 'Approved')
+            ->count();
         $remainingSeats = max(0, $event->capacity - $registrationsCount);
 
         $reviewsCount = Review::where('event_id', $event->id)->count();
@@ -146,6 +151,7 @@ public function index(Request $request)
 
         $eventData = array_merge($event->toArray(), [
             'registrations_count' => $registrationsCount,
+            'participants_count' => $approvedCount,
             'remaining_seats' => $remainingSeats,
             'average_rating' => $averageRating,
             'reviews_count' => $reviewsCount,
@@ -296,17 +302,63 @@ public function index(Request $request)
             return response()->json(['message' => 'Forbidden: Only organizers can view their events'], 403);
         }
 
-        $events = Event::with('category')
+        $events = Event::with('category', 'reviews')
             ->where('organizer_id', $user->id)
+            ->withCount(['registrations as registrations_count' => function ($query) {
+                $query->whereNotIn('status', ['Cancelled', 'Rejected']);
+            }])
+            ->withCount(['registrations as participants_count' => function ($query) {
+                $query->where('status', 'Approved');
+            }])
+            ->withCount(['reviews as reviews_count'])
             ->orderBy('date_time')
             ->get();
 
-        // add `image` attribute for frontend compatibility
+        // add `image` attribute for frontend compatibility and format reviews
         $events->each(function ($ev) {
             $ev->setAttribute('image', $ev->image_url ?? null);
+            $ev->setAttribute('remaining_seats', max(0, $ev->capacity - ($ev->registrations_count ?? 0)));
+            
+            // Format reviews with user names
+            if ($ev->reviews) {
+                $ev->reviews = $ev->reviews->map(function ($review) {
+                    return [
+                        'id' => $review->id,
+                        'rating' => $review->rating,
+                        'comment' => $review->comment,
+                        'user_name' => $review->attendee->name ?? 'Anonymous',
+                        'created_at' => $review->created_at,
+                    ];
+                });
+            }
         });
 
         return response()->json(['data' => $events], 200);
+    }
+
+    public function endEvent(Request $request, $id)
+    {
+        $user = $request->user();
+        $event = Event::find($id);
+
+        if (!$event) {
+            return response()->json(['message' => 'Event not found'], 404);
+        }
+
+        if ($event->organizer_id !== $user->id) {
+            return response()->json(['message' => 'Forbidden: Only the organizer can end this event'], 403);
+        }
+
+        if ($event->status === 'ended') {
+            return response()->json(['message' => 'Event has already been ended'], 400);
+        }
+
+        $event->update([
+            'status' => 'ended',
+            'end_date' => now(),
+        ]);
+
+        return response()->json(['message' => 'Event marked as ended successfully', 'data' => $event], 200);
     }
 
     public function update(Request $request, $id)
@@ -329,7 +381,7 @@ public function index(Request $request)
             'location' => 'sometimes|required|string|max:255',
             'date_time' => 'sometimes|required|date',
             'capacity' => 'sometimes|required|integer|min:1',
-            'status' => 'sometimes|required|in:published,draft,cancelled',
+            'status' => 'sometimes|required|in:published,draft,cancelled,ended',
             'image' => 'nullable|image|max:5120',
             'event_type' => 'nullable|string|max:50',
             'require_additional_info' => 'nullable|boolean',
