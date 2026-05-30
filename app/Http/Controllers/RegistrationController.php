@@ -63,7 +63,7 @@ class RegistrationController extends Controller
                 // collect answers into associative array if present
                 $additionalInfo = [];
                 foreach ($questions as $index => $question) {
-                    $questionText = is_string($question) ? $question : ($question['question'] ?? "question_{$index}");
+                    $questionText = is_string($question) ? $question : ($question['question'] ?? $question['name'] ?? "question_{$index}");
                     $fieldName = "additional_info_{$index}";
                     $additionalInfo[$questionText] = $request->input($fieldName);
                 }
