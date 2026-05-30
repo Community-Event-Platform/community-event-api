@@ -60,7 +60,7 @@ public function index(Request $request)
             'event_type' => 'nullable|string|max:50',
             'require_additional_info' => 'nullable|boolean',
             'custom_form_spec' => 'nullable|string',
-            'price' => 'nullable|integer|min:0',
+            'price' => 'nullable|numeric|min:0',
             'fees_and_taxes' => 'nullable|integer|min:0',
         ]);
 
@@ -170,12 +170,12 @@ public function index(Request $request)
             ->exists();
 
         if ($exists) {
-            return response()->json(['message' => 'Bạn đã đăng ký tham gia sự kiện này rồi!'], 400);
+            return response()->json(['message' => 'You have already registered for this event!'], 400);
         }
 
         $registrationsCount = Registration::where('event_id', $event->id)->count();
         if ($registrationsCount >= $event->capacity) {
-            return response()->json(['message' => 'Sự kiện đã hết ghế trống!'], 400);
+            return response()->json(['message' => 'The event is fully booked!'], 400);
         }
 
         $registration = Registration::create([
@@ -185,7 +185,7 @@ public function index(Request $request)
         ]);
 
         return response()->json([
-            'message' => 'Đăng ký tham gia thành công!',
+            'message' => 'Registration completed successfully!',
             'data' => $registration
         ], 201);
     }
@@ -202,7 +202,7 @@ public function index(Request $request)
         // Check if event has ended
         $eventEndTime = $event->end_date ?? $event->date_time;
         if (now()->isBefore($eventEndTime)) {
-            return response()->json(['message' => 'Sự kiện chưa kết thúc. Bạn chỉ có thể đánh giá sau khi sự kiện kết thúc.'], 400);
+            return response()->json(['message' => 'The event has not finished yet. You can only submit a review after it ends.'], 400);
         }
 
         $isRegistered = Registration::where('event_id', $event->id)
@@ -210,7 +210,7 @@ public function index(Request $request)
             ->exists();
 
         if (!$isRegistered) {
-            return response()->json(['message' => 'Bạn cần phải đăng ký tham gia sự kiện mới có thể đánh giá!'], 403);
+            return response()->json(['message' => 'You must be registered for the event before you can leave a review.'], 403);
         }
 
         $isReviewed = Review::where('event_id', $event->id)
@@ -218,19 +218,19 @@ public function index(Request $request)
             ->exists();
 
         if ($isReviewed) {
-            return response()->json(['message' => 'Bạn đã gửi đánh giá cho sự kiện này rồi!'], 400);
+            return response()->json(['message' => 'You have already submitted a review for this event.'], 400);
         }
 
         $validator = Validator::make($request->all(), [
             'rating' => 'required|integer|min:1|max:5',
             'comment' => 'required|string|max:300',
         ], [
-            'rating.required' => 'Vui lòng chọn số sao đánh giá.',
-            'rating.integer' => 'Đánh giá không hợp lệ.',
-            'rating.min' => 'Đánh giá tối thiểu là 1 sao.',
-            'rating.max' => 'Đánh giá tối đa là 5 sao.',
-            'comment.required' => 'Vui lòng viết nhận xét đánh giá.',
-            'comment.max' => 'Nhận xét không được vượt quá 300 ký tự.',
+            'rating.required' => 'Please choose a star rating.',
+            'rating.integer' => 'The rating is invalid.',
+            'rating.min' => 'The minimum rating is 1 star.',
+            'rating.max' => 'The maximum rating is 5 stars.',
+            'comment.required' => 'Please write a review comment.',
+            'comment.max' => 'The review comment cannot exceed 300 characters.',
         ]);
 
         if ($validator->fails()) {
