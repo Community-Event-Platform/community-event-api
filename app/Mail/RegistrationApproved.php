@@ -27,11 +27,11 @@ class RegistrationApproved extends Mailable
     public function build()
     {
         $event = $this->registration->event;
-        return $this->subject('Thông báo: Đăng ký tham gia được chấp nhận')
+        return $this->subject('Notification: Registration Approved')
             ->view('emails.registration_approved')
             ->with([
-                'attendeeName' => $this->registration->attendee?->name ?? 'Người dùng',
-                'eventName' => $event?->name ?? 'Sự kiện',
+                'attendeeName' => $this->registration->attendee?->name ?? 'User',
+                'eventName' => $event?->name ?? 'Event',
                 'eventDate' => $event?->date_time?->format('d/m/Y H:i') ?? null,
                 'eventLocation' => $event?->location ?? null,
             ]);
