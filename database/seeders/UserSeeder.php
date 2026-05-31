@@ -17,7 +17,7 @@ class UserSeeder extends Seeder
 
         User::whereNotIn('name', $keepNames)->delete();
 
-        User::updateOrCreate(
+        User::withTrashed()->updateOrCreate(
             ['email' => 'organizer1@example.com'],
             [
                 'name' => 'Trần Sơn',

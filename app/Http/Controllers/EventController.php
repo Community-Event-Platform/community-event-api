@@ -18,6 +18,10 @@ public function index(Request $request)
     $category = $request->query('category');
 
     $events = Event::with('category')
+        ->withCount(['registrations as attendees' => function($q) {
+            $q->whereNull('waitlist_position')
+              ->whereNotIn('status', ['Cancelled', 'Rejected']);
+        }])
         ->where('status', 'published')
 
         // SEARCH: name OR description
@@ -206,7 +210,7 @@ public function index(Request $request)
         }
 
         // Check if event has ended
-        $eventEndTime = $event->end_date ?? $event->date_time;
+        $eventEndTime = $event->ended_at ?? $event->date_time;
         if (now()->isBefore($eventEndTime)) {
             return response()->json(['message' => 'The event has not finished yet. You can only submit a review after it ends.'], 400);
         }
@@ -357,7 +361,7 @@ public function index(Request $request)
 
         $event->update([
             'status' => 'ended',
-            'end_date' => now(),
+            'ended_at' => now(),
         ]);
 
         return response()->json(['message' => 'Event marked as ended successfully', 'data' => $event], 200);
