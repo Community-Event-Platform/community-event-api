@@ -403,6 +403,14 @@ class RegistrationController extends Controller
     }
 
     /**
+     * Compatibility wrapper for route naming: approveRegistration
+     */
+    public function approveRegistration(Request $request, $registrationId)
+    {
+        return $this->organizerApprove($request, $registrationId);
+    }
+
+    /**
      * Organizer: Reject a registration. Sends queued email and promotes waitlist if needed.
      */
     public function organizerReject(Request $request, $registrationId)
@@ -459,6 +467,14 @@ class RegistrationController extends Controller
 
             return response()->json(['message' => 'Registration rejected', 'data' => $registration], 200);
         });
+    }
+
+    /**
+     * Compatibility wrapper for route naming: rejectRegistration
+     */
+    public function rejectRegistration(Request $request, $registrationId)
+    {
+        return $this->organizerReject($request, $registrationId);
     }
 
     /**
