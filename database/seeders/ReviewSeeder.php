@@ -4,59 +4,81 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ReviewSeeder extends Seeder
 {
     public function run(): void
     {
-        // Láº¥y ID cá»§a 2 sá»± kiá»‡n Ä‘áº§u tiÃªn
-        $events = DB::table('events')->limit(2)->pluck('id')->toArray();
-        $event1 = $events[0] ?? null;
-        $event2 = $events[1] ?? null;
-
-        // Láº¥y ID cá»§a ngÆ°á»i dÃ¹ng (attendees)
-        $attendees = DB::table('users')->pluck('id')->toArray();
-        $attendee1 = $attendees[0] ?? null;
-        $attendee2 = $attendees[1] ?? null;
-        $attendee3 = $attendees[2] ?? null;
-        $attendee4 = $attendees[3] ?? null;
-
-        // Chá»‰ táº¡o Ä‘Ã¡nh giÃ¡ náº¿u cÃ³ Ä‘á»§ dá»¯ liá»‡u
-        if ($event1 && $event2 && $attendee1 && $attendee2 && $attendee3 && $attendee4) {
-            DB::table('reviews')->upsert([
-                [
-                    'event_id' => $event1,
-                    'attendee_id' => $attendee1,
-                    'rating' => 5,
-                    'comment' => 'Sự kiện tuyệt vời! Âm nhạc hay, không khí tuyệt vời.',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'event_id' => $event1,
-                    'attendee_id' => $attendee2,
-                    'rating' => 4,
-                    'comment' => 'Rất thích buổi hòa nhạc này. Chỉ hơi quá đông.',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'event_id' => $event2,
-                    'attendee_id' => $attendee1,
-                    'rating' => 5,
-                    'comment' => 'Giải đấu tuyệt vời, tổ chức chuyên nghiệp.',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'event_id' => $event2,
-                    'attendee_id' => $attendee4,
-                    'rating' => 4,
-                    'comment' => 'Thích hợp tác với mọi người tại đây. Sân tốt.',
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-            ], ['event_id', 'attendee_id'], ['rating', 'comment', 'updated_at']);
+        $now = Carbon::now();
+        
+        // Lay cac su kien da ket thuc (date_time < now)
+        $pastEvents = DB::table('events')
+            ->where('date_time', '<', $now)
+            ->limit(5)
+            ->get(['id', 'name', 'date_time']);
+        
+        // Lay attendees
+        $attendees = DB::table('users')
+            ->where('role', '!=', 'organizer')
+            ->limit(10)
+            ->pluck('id')
+            ->toArray();
+        
+        $reviewData = [];
+        $registrationData = [];
+        
+        foreach ($pastEvents as $event) {
+            $numRegistrations = min(rand(2, 5), count($attendees));
+            
+            for ($i = 0; $i < $numRegistrations; $i++) {
+                $attendeeId = $attendees[$i % count($attendees)];
+                
+                // Kiem tra chua co registration truoc do
+                $exists = DB::table('registrations')
+                    ->where('event_id', $event->id)
+                    ->where('attendee_id', $attendeeId)
+                    ->exists();
+                
+                if (!$exists) {
+                    $registrationData[] = [
+                        'event_id' => $event->id,
+                        'attendee_id' => $attendeeId,
+                        'status' => 'Confirmed',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                    
+                    $ratings = [3, 4, 4, 5, 5, 5];
+                    $comments = [
+                        'Su kien rat tuyet voi, to chuc chu dao!',
+                        'Khong khi tuyet voi, se quay lai vao dip khac.',
+                        'Trai nghiem tot, cho doi them cac su kien tiep theo.',
+                        'To chuc chuyen nghiep, thong tin cap nhat day du.',
+                        'Thich hop voi moi nguoi, khong gian tot.',
+                        'Rat bo ich, hoc duoc nhieu dieu moi.',
+                    ];
+                    
+                    $reviewData[] = [
+                        'event_id' => $event->id,
+                        'attendee_id' => $attendeeId,
+                        'rating' => $ratings[array_rand($ratings)],
+                        'comment' => $comments[array_rand($comments)],
+                        'created_at' => Carbon::parse($event->date_time)->addDays(rand(1, 3)),
+                        'updated_at' => $now,
+                    ];
+                }
+            }
         }
+        
+        if (!empty($registrationData)) {
+            DB::table('registrations')->insert($registrationData);
+        }
+        
+        if (!empty($reviewData)) {
+            DB::table('reviews')->upsert($reviewData, ['event_id', 'attendee_id'], ['rating', 'comment', 'updated_at']);
+        }
+        
+        $this->command->info('Created ' . count($reviewData) . ' reviews for ' . count($pastEvents) . ' past events.');
     }
 }

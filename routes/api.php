@@ -55,7 +55,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/registrations', [RegistrationController::class, 'getMyRegistrations']);
     Route::get('/user/profile', [RegistrationController::class, 'getProfileWithRegistrations']);
     Route::patch('/registrations/{id}/cancel', [RegistrationController::class, 'cancelRegistration']);
-    Route::patch('/registrations/{id}/approve', [RegistrationController::class, 'approveRegistration']);
+    Route::patch('/registrations/{id}/approve', [RegistrationController::class, 'organizerApprove']);
     Route::patch('/registrations/{id}/reject', [RegistrationController::class, 'rejectRegistration']);
     Route::get('/events/{id}/registration-status', [RegistrationController::class, 'checkRegistration']);
 
@@ -80,4 +80,3 @@ Route::middleware('auth:sanctum')->group(function () {
 // VNPay Return/IPN (public, outside auth)
 Route::get('/payment/vnpay/return', [PaymentController::class, 'vnpayReturn']);
 Route::post('/payment/vnpay/ipn', [PaymentController::class, 'vnpayIpn']);
-

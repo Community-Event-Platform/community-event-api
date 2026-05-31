@@ -270,9 +270,9 @@ class RegistrationController extends Controller
             ]);
         }
 
-        // Queue approval email for promoted attendee
+        // Send approval email for promoted attendee
         if ($first->attendee && $first->attendee->email) {
-            Mail::to($first->attendee->email)->queue(new RegistrationApproved($first));
+            Mail::to($first->attendee->email)->send(new RegistrationApproved($first));
         }
 
         // Shift remaining waitlist positions down by 1
@@ -393,9 +393,9 @@ class RegistrationController extends Controller
                 ]);
             }
 
-            // Queue email
+            // Send approval email
             if ($registration->attendee && $registration->attendee->email) {
-                Mail::to($registration->attendee->email)->queue(new RegistrationApproved($registration));
+                Mail::to($registration->attendee->email)->send(new RegistrationApproved($registration));
             }
 
             return response()->json(['message' => 'Registration approved', 'data' => $registration], 200);
@@ -452,9 +452,9 @@ class RegistrationController extends Controller
                 ]);
             }
 
-            // Queue email
+            // Send rejection email
             if ($registration->attendee && $registration->attendee->email) {
-                Mail::to($registration->attendee->email)->queue(new RegistrationRejected($registration));
+                Mail::to($registration->attendee->email)->send(new RegistrationRejected($registration));
             }
 
             return response()->json(['message' => 'Registration rejected', 'data' => $registration], 200);

@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::table('events', function (Blueprint $table) {
             $table->unsignedInteger('attendees')->default(0)->after('event_type');
             $table->decimal('rating', 3, 1)->default(4.5)->after('attendees');
-            $table->unsignedInteger('price')->nullable()->after('rating');
+            // 'price' column already exists in create_events_table migration
         });
     }
 
