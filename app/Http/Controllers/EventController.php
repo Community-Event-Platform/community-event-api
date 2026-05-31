@@ -18,6 +18,10 @@ public function index(Request $request)
     $category = $request->query('category');
 
     $events = Event::with('category')
+        ->withCount(['registrations as attendees' => function($q) {
+            $q->whereNull('waitlist_position')
+              ->whereNotIn('status', ['Cancelled', 'Rejected']);
+        }])
         ->where('status', 'published')
 
         // SEARCH: name OR description
