@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -12,7 +11,6 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
 
     const UPDATED_AT = null;
@@ -20,7 +18,7 @@ class User extends Authenticatable
     /**
      * The attributes that are mass assignable.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
     protected $fillable = [
         'name',
@@ -28,12 +26,13 @@ class User extends Authenticatable
         'password',
         'role',
         'google_id',
+        'avatar_url', // thêm dòng này
     ];
 
     /**
      * The attributes that should be hidden for serialization.
      *
-     * @var list<string>
+     * @var array<int, string>
      */
     protected $hidden = [
         'password',
@@ -50,14 +49,27 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
+    /**
+     * Attendee registrations
+     */
     public function registrations()
     {
         return $this->hasMany(Registration::class, 'attendee_id');
     }
 
+    /**
+     * Attendee reviews
+     */
     public function reviews()
     {
         return $this->hasMany(Review::class, 'attendee_id');
     }
-}
 
+    /**
+     * Organizer events
+     */
+    public function organizedEvents()
+    {
+        return $this->hasMany(Event::class, 'organizer_id');
+    }
+}
