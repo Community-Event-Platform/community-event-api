@@ -26,7 +26,7 @@ class UserSeeder extends Seeder
                 'avatar_url' => 'https://api.dicebear.com/7.x/avataaars/svg?seed=organizer1',
             ]
         );
-        User::updateOrCreate(
+        User::withTrashed()->updateOrCreate(
             ['email' => 'attendee3@example.com'],
             [
                 'name' => 'Đỗ Linh',

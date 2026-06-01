@@ -40,12 +40,17 @@ public function index(Request $request)
         ->orderBy('date_time')
         ->get();
 
+    // add `image` attribute for frontend compatibility
+    $events->each(function ($ev) {
+        $ev->setAttribute('image', $ev->image_url ?? null);
+    });
+
     return response()->json([
         'data' => $events
     ], 200);
 }
 
-    public function store(Request $request)
+public function store(Request $request)
     {
         $user = $request->user();
         if ($user->role !== 'organizer') {
@@ -294,6 +299,11 @@ public function index(Request $request)
             })
             ->orderBy('date_time')
             ->get();
+
+        // add `image` attribute for frontend compatibility
+        $events->each(function ($ev) {
+            $ev->setAttribute('image', $ev->image_url ?? null);
+        });
 
         return response()->json(['data' => $events], 200);
     }
