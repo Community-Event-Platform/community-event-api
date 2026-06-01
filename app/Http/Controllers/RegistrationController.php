@@ -499,7 +499,32 @@ class RegistrationController extends Controller
             $query->where('status', $request->status);
         }
 
-        $registrations = $query->orderBy('created_at', 'desc')->get();
+        $registrations = $query->orderBy('created_at', 'desc')->get()
+            ->map(function ($reg) {
+                return [
+                    'id' => $reg->id,
+                    'status' => $reg->status,
+                    'waitlist_position' => $reg->waitlist_position,
+                    'registered_at' => $reg->created_at?->format('d/m/Y H:i'),
+                    'event' => $reg->event ? [
+                        'id' => $reg->event->id,
+                        'name' => $reg->event->name,
+                    ] : null,
+                    'attendee' => $reg->attendee ? [
+                        'id' => $reg->attendee->id,
+                        'name' => $reg->attendee->name,
+                        'email' => $reg->attendee->email,
+                        'avatar' => $reg->attendee->avatar ?? null,
+                    ] : null,
+                    'form_responses' => $reg->formResponses->map(fn($fr) => [
+                        'field_name' => $fr->field_name,
+                        'field_type' => $fr->field_type,
+                        'response_value' => $fr->response_value,
+                    ]),
+                    'additional_info' => $reg->additional_info ?? null,
+                    'payment_id' => $reg->payment_id,
+                ];
+            });
 
         return response()->json(['data' => $registrations], 200);
     }
