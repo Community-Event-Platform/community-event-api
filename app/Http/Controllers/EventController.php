@@ -189,18 +189,33 @@ public function store(Request $request)
         }
 
         $registrationsCount = Registration::where('event_id', $event->id)->count();
-        if ($registrationsCount >= $event->capacity) {
+        $isFull = $registrationsCount >= $event->capacity;
+        $isPaidEvent = $event->price != null && $event->price > 0;
+
+        // For paid events: reject if full
+        if ($isPaidEvent && $isFull) {
             return response()->json(['message' => 'The event is fully booked!'], 400);
+        }
+
+        // For free events: allow waitlist if full
+        $waitlistPosition = null;
+        if ($isFull && !$isPaidEvent) {
+            // Get the next waitlist position
+            $maxPosition = Registration::where('event_id', $event->id)
+                ->whereNotNull('waitlist_position')
+                ->max('waitlist_position');
+            $waitlistPosition = ($maxPosition ?? 0) + 1;
         }
 
         $registration = Registration::create([
             'event_id' => $event->id,
             'attendee_id' => $user->id,
-            'status' => 'Approved',
+            'status' => $isFull ? 'Waitlisted' : 'Approved',
+            'waitlist_position' => $waitlistPosition,
         ]);
 
         return response()->json([
-            'message' => 'Registration completed successfully!',
+            'message' => $isFull ? 'Added to waitlist successfully!' : 'Registration completed successfully!',
             'data' => $registration
         ], 201);
     }
@@ -332,7 +347,7 @@ public function store(Request $request)
         $events->each(function ($ev) {
             $ev->setAttribute('image', $ev->image_url ?? null);
             $ev->setAttribute('remaining_seats', max(0, $ev->capacity - ($ev->registrations_count ?? 0)));
-            
+
             // Format reviews with user names
             if ($ev->reviews) {
                 $ev->reviews = $ev->reviews->map(function ($review) {
