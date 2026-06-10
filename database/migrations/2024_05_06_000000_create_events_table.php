@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('organizer_id')->constrained('users')->onDelete('cascade');
             $table->string('name', 255);
             $table->text('description');
-            $table->foreignId('category_id')->constrained('categories')->onDelete('cascade');
+            $table->string('category', 100)->index(); // VARCHAR, không phải FK
             $table->string('location', 255);
             $table->dateTime('date_time'); // Đổi từ event_date
             $table->integer('capacity')->unsigned();

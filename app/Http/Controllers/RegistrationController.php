@@ -136,7 +136,7 @@ class RegistrationController extends Controller
                     }
                 }
 
-                return response()->json(['message' => 'Registration completed successfully!', 'data' => $registration], 201);
+                return response()->json(['message' => 'Registration request submitted successfully. Please wait for approval.', 'data' => $registration], 201);
             }
 
             // Event full -> join waitlist
@@ -522,7 +522,6 @@ class RegistrationController extends Controller
                         'response_value' => $fr->response_value,
                     ]),
                     'additional_info' => $reg->additional_info ?? null,
-                    'payment_id' => $reg->payment_id,
                 ];
             });
 

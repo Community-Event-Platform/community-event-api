@@ -23,7 +23,6 @@ class Registration extends Model
         'waitlist_position',
         'payment_id',
         'additional_info',
-        'waitlist_position',
     ];
 
     protected $casts = [

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use App\Models\Category;
 use App\Models\Registration;
 use App\Models\Review;
 use Illuminate\Http\Request;
@@ -15,10 +14,9 @@ class EventController extends Controller
 public function index(Request $request)
 {
     $search = $request->query('search');
-    $category = $request->query('category');
+    $category = $request->query('category_id');
 
-    $events = Event::with('category')
-        ->withCount(['registrations as attendees' => function($q) {
+    $events = Event::with('category')->withCount(['registrations as attendees' => function($q) {
             $q->whereNull('waitlist_position')
               ->whereNotIn('status', ['Cancelled', 'Rejected']);
         }])
@@ -32,7 +30,7 @@ public function index(Request $request)
             });
         })
 
-        // FILTER CATEGORY
+        // FILTER CATEGORY: lọc theo category_id (FK)
         ->when($category, function ($query, $category) {
             $query->where('category_id', $category);
         })
@@ -107,12 +105,15 @@ public function store(Request $request)
             $event->setAttribute('image', $event->image_url);
         }
 
+        // load category relationship for frontend
+        $event->load('category');
+
         return response()->json(['data' => $event], 201);
     }
 
     public function show(Request $request, $id)
     {
-        // Đã sửa: Load kèm cả organizer và category
+        // Load organizer + category
         $event = Event::with(['organizer', 'category'])->find($id);
 
         if (!$event) {
@@ -200,7 +201,6 @@ public function store(Request $request)
         // For free events: allow waitlist if full
         $waitlistPosition = null;
         if ($isFull && !$isPaidEvent) {
-            // Get the next waitlist position
             $maxPosition = Registration::where('event_id', $event->id)
                 ->whereNotNull('waitlist_position')
                 ->max('waitlist_position');
@@ -446,6 +446,9 @@ public function store(Request $request)
 
         // ensure frontend can read `image` attribute
         $event->setAttribute('image', $imageUrl);
+
+        // load category relationship for frontend
+        $event->load('category');
 
         return response()->json(['data' => $event], 200);
     }

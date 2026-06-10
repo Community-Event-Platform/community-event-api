@@ -76,7 +76,3 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/payments/{id}', [PaymentController::class, 'getPaymentStatus']);
     Route::get('/events/{id}/payment-status', [PaymentController::class, 'checkPaymentStatus']);
 });
-
-// VNPay Return/IPN (public, outside auth)
-Route::get('/payment/vnpay/return', [PaymentController::class, 'vnpayReturn']);
-Route::post('/payment/vnpay/ipn', [PaymentController::class, 'vnpayIpn']);
