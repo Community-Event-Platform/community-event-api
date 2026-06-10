@@ -28,6 +28,11 @@ class RegistrationController extends Controller
                 return response()->json(['message' => 'Event not found'], 404);
             }
 
+            // Check if event deadline has passed
+            if ($event->date_time < now()) {
+                return response()->json(['message' => 'Registration deadline has passed. This event has already started or ended.'], 400);
+            }
+
             // Prepare questions array (may be filled below)
             $questions = [];
 

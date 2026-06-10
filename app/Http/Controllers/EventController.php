@@ -7,7 +7,6 @@ use App\Models\Registration;
 use App\Models\Review;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
 
 class EventController extends Controller
 {
@@ -170,54 +169,6 @@ public function store(Request $request)
         ]);
 
         return response()->json(['data' => $eventData], 200);
-    }
-
-    public function register(Request $request, $id)
-    {
-        $user = $request->user();
-        $event = Event::find($id);
-
-        if (!$event) {
-            return response()->json(['message' => 'Event not found'], 404);
-        }
-
-        $exists = Registration::where('event_id', $event->id)
-            ->where('attendee_id', $user->id)
-            ->exists();
-
-        if ($exists) {
-            return response()->json(['message' => 'You have already registered for this event!'], 400);
-        }
-
-        $registrationsCount = Registration::where('event_id', $event->id)->count();
-        $isFull = $registrationsCount >= $event->capacity;
-        $isPaidEvent = $event->price != null && $event->price > 0;
-
-        // For paid events: reject if full
-        if ($isPaidEvent && $isFull) {
-            return response()->json(['message' => 'The event is fully booked!'], 400);
-        }
-
-        // For free events: allow waitlist if full
-        $waitlistPosition = null;
-        if ($isFull && !$isPaidEvent) {
-            $maxPosition = Registration::where('event_id', $event->id)
-                ->whereNotNull('waitlist_position')
-                ->max('waitlist_position');
-            $waitlistPosition = ($maxPosition ?? 0) + 1;
-        }
-
-        $registration = Registration::create([
-            'event_id' => $event->id,
-            'attendee_id' => $user->id,
-            'status' => $isFull ? 'Waitlisted' : 'Approved',
-            'waitlist_position' => $waitlistPosition,
-        ]);
-
-        return response()->json([
-            'message' => $isFull ? 'Added to waitlist successfully!' : 'Registration completed successfully!',
-            'data' => $registration
-        ], 201);
     }
 
     public function storeReview(Request $request, $id)
