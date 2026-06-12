@@ -1,96 +1,225 @@
-# EventHub — Community Event API
+# EventHub - Community Event Platform API
 
-Mô tả
--
-Backend API (Laravel) cung cấp toàn bộ endpoint cho nền tảng EventHub: quản lý sự kiện, danh mục, đăng ký, thông báo và người dùng.
+## Overview
 
-Yêu cầu
--
-- PHP 8.1+ với các extension chuẩn (OpenSSL, PDO, Mbstring, Tokenizer, XML, Ctype, BCMath)
-- Composer
-- MySQL / PostgreSQL hoặc DB được hỗ trợ
-- Redis (nếu sử dụng queue/cache)
+EventHub API is the backend service of the Community Event Platform, developed using Laravel 12 and MySQL. It provides secure authentication, event management, registration workflows, waitlist automation, review management, and notification services for both attendees and organizers.
 
-Cài đặt nhanh (local)
--
-1. Cài dependencies PHP:
+This repository serves as the central RESTful API for:
+
+* Attendee Client Application
+* Organizer Dashboard Application
+
+---
+
+## Features
+
+### Authentication & Authorization
+
+* User Registration
+* User Login
+* Google OAuth Login
+* Laravel Sanctum Authentication
+* Role-Based Access Control (RBAC)
+* Protected API Routes
+
+### Event Management
+
+* Create Events
+* Update Events
+* Delete Events
+* Publish/Draft Events
+* Event Categories
+* Event Image Upload
+
+### Registration Management
+
+* Event Registration
+* Registration Approval/Rejection
+* Registration Cancellation
+* Automatic Waitlist Handling
+* Capacity Tracking
+
+### Custom Registration Forms
+
+* Dynamic Form Builder
+* Custom Questions
+* Form Response Storage
+* Additional Attendee Information Collection
+
+### Reviews & Ratings
+
+* Submit Reviews
+* Event Ratings
+* Review Display
+
+### Notification System
+
+* In-App Notifications
+* Email Notifications
+* Registration Status Updates
+* Waitlist Promotion Notifications
+
+---
+
+## Tech Stack
+
+| Technology      | Purpose               |
+| --------------- | --------------------- |
+| Laravel 12      | Backend Framework     |
+| PHP 8.2+        | Programming Language  |
+| MySQL           | Database              |
+| Laravel Sanctum | Authentication        |
+| Firebase JWT    | Token Management      |
+| Laravel Mail    | Email Notifications   |
+| Composer        | Dependency Management |
+
+---
+
+## Architecture
+
+The project follows the MVC Architecture pattern.
+
+```text
+app/
+├── Http/
+│   ├── Controllers/
+│   ├── Middleware/
+│
+├── Models/
+│
+├── Mail/
+│
+├── Providers/
+│
+database/
+├── migrations/
+├── seeders/
+│
+routes/
+├── api.php
+```
+
+---
+
+## Database Entities
+
+* Users
+* Events
+* Registrations
+* Form Responses
+* Notifications
+* Reviews
+* Categories
+
+---
+
+## Main API Endpoints
+
+### Public Routes
+
+```http
+GET    /api/events
+GET    /api/events/{id}
+GET    /api/events/search
+POST   /api/login
+```
+
+### Protected Routes
+
+```http
+POST   /api/events
+POST   /api/events/{id}/register
+POST   /api/events/{id}/register/paid
+
+PATCH  /api/registrations/{id}/approve
+PATCH  /api/registrations/{id}/cancel
+```
+
+### Payment Routes
+
+```http
+GET /api/payment/vnpay/return
+```
+
+---
+
+## Installation
+
+### Clone Repository
+
+```bash
+git clone https://github.com/Community-Event-Platform/community-event-api.git
+
+cd community-event-api
+```
+
+### Install Dependencies
 
 ```bash
 composer install
 ```
 
-2. Copy `.env` và cấu hình:
+### Configure Environment
 
 ```bash
 cp .env.example .env
-# chỉnh sửa .env: DB_CONNECTION, DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD, MAIL_*, APP_URL...
 ```
 
-3. Tạo APP KEY:
+Update database configuration:
+
+```env
+DB_DATABASE=eventhub
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### Generate Application Key
 
 ```bash
 php artisan key:generate
 ```
 
-4. Chạy migration & seeder (nếu cần):
+### Run Migrations
 
 ```bash
-php artisan migrate --seed
+php artisan migrate
 ```
 
-5. (Tùy chọn) Cài node dependencies cho assets nếu bạn sẽ build front-end:
+### Create Storage Link
 
 ```bash
-npm install
-npm run build
+php artisan storage:link
 ```
 
-6. Chạy server local:
+### Start Development Server
 
 ```bash
-php artisan serve --host=127.0.0.1 --port=8000
+php artisan serve
 ```
 
-API docs & Postman
--
-- File Postman collection có tại `Community Event Platform.postman_collection.json` trong thư mục gốc.
-- Nếu có swagger/openapi, thêm đường dẫn vào đây.
+---
 
-Lệnh artisan thường dùng
--
-- `php artisan migrate` — chạy migration
-- `php artisan db:seed` — chạy seeder
-- `php artisan queue:work` — chạy worker queue
-- `php artisan config:cache` — cache cấu hình
+## Waitlist Automation
 
-Kiểm thử
--
-- Chạy test PHPUnit:
+When an event reaches its maximum capacity:
 
-```bash
-./vendor/bin/phpunit
-```
+1. New attendees are automatically added to the waitlist.
+2. Queue positions are assigned using FIFO logic.
+3. If a participant cancels:
 
-Triển khai (tóm tắt)
--
-- Thiết lập biến môi trường production trong `.env`
-- Sử dụng worker queue (supervisor) nếu dùng queue
-- Cấu hình scheduler (`crontab`) để chạy `php artisan schedule:run`
-- Thiết lập storage symlink: `php artisan storage:link`
+   * The first user in the waitlist is promoted automatically.
+   * Email notification is sent.
+   * Queue positions are updated automatically.
 
-Bảo mật & lưu ý
--
-- Không commit file `.env` vào git
-- Hạn chế quyền truy cập DB/queues cho production
+---
 
-Đóng góp
--
-- Mọi thay đổi xin gửi PR vào nhánh `main`. Mô tả rõ thay đổi và kèm hướng dẫn chạy (nếu cần).
+## Team
 
-Liên hệ
--
-- Xem file `Community Event Platform.postman_collection.json` hoặc mở issue/PR để trao đổi API.
+### Group 5 – Advanced Web Application Development
 
-License
--
-- Kiểm tra file `LICENSE` trong repo để biết chi tiết bản quyền.
+* Nguyễn Thị Dung
+* Nguyễn Tiến Nhựt
+* Hồ Thị Vãi
+* Hồ Văn Tiết
+
+Passerelles Numériques Vietnam (PNV)
