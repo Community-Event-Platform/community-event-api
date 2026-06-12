@@ -13,7 +13,9 @@ class EventController extends Controller
 public function index(Request $request)
 {
     $search = $request->query('search');
-    $category = $request->query('category_id');
+    $categoryId = $request->query('category_id');
+    $categoryName = $request->query('category');
+    $dateFilter = $request->query('date');
 
     $events = Event::with('category')->withCount(['registrations as attendees' => function($q) {
             $q->whereNull('waitlist_position')
@@ -29,9 +31,19 @@ public function index(Request $request)
             });
         })
 
-        // FILTER CATEGORY: lọc theo category_id (FK)
-        ->when($category, function ($query, $category) {
-            $query->where('category_id', $category);
+        // FILTER CATEGORY: lọc theo category_id (FK) hoặc category name
+        ->when($categoryId, function ($query, $categoryId) {
+            $query->where('category_id', $categoryId);
+        })
+        ->when($categoryName, function ($query, $categoryName) {
+            $query->whereHas('category', function ($q) use ($categoryName) {
+                $q->where('name', $categoryName);
+            });
+        })
+
+        // FILTER DATE: lọc theo ngày
+        ->when($dateFilter, function ($query, $dateFilter) {
+            $query->whereDate('date_time', $dateFilter);
         })
 
         ->orderBy('date_time')
