@@ -52,7 +52,8 @@ class RegistrationController extends Controller
                     ? json_decode($event->custom_form_spec, true)
                     : $event->custom_form_spec;
 
-                $questions = $formSpec['questions'] ?? [];
+                // Handle both formats: {questions: [...]} and direct array [...]
+                $questions = $formSpec['questions'] ?? (is_array($formSpec) && array_is_list($formSpec) ? $formSpec : []);
                 $errors = [];
                 foreach ($questions as $index => $question) {
                     $isRequired = is_array($question) ? ($question['is_required'] ?? false) : false;
